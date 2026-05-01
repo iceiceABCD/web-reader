@@ -1,12 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
 import { books } from "@/lib/db/schema";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
+import { getUserId, unauthorized } from "@/lib/auth-helpers";
 
 export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ url: string }> }
 ) {
+  const userId = await getUserId();
+  if (!userId) return unauthorized();
+
   try {
     const { url } = await params;
     const db = getDb();
@@ -14,7 +18,9 @@ export async function GET(
     const book = await db
       .select()
       .from(books)
-      .where(eq(books.bookUrl, decodedUrl))
+      .where(
+        and(eq(books.bookUrl, decodedUrl), eq(books.userId, userId))
+      )
       .limit(1);
 
     if (!book.length) {
@@ -34,11 +40,18 @@ export async function DELETE(
   _request: NextRequest,
   { params }: { params: Promise<{ url: string }> }
 ) {
+  const userId = await getUserId();
+  if (!userId) return unauthorized();
+
   try {
     const { url } = await params;
     const db = getDb();
     const decodedUrl = decodeURIComponent(url);
-    await db.delete(books).where(eq(books.bookUrl, decodedUrl));
+    await db
+      .delete(books)
+      .where(
+        and(eq(books.bookUrl, decodedUrl), eq(books.userId, userId))
+      );
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("Failed to delete book:", error);

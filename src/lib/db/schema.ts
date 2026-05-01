@@ -11,10 +11,21 @@ import {
   index,
 } from "drizzle-orm/pg-core";
 
+export const users = pgTable("users", {
+  id: text("id").primaryKey(),
+  email: text("email").notNull().unique(),
+  name: text("name").notNull(),
+  passwordHash: text("password_hash").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 export const bookSources = pgTable(
   "book_sources",
   {
-    bookSourceUrl: text("book_source_url").primaryKey(),
+    bookSourceUrl: text("book_source_url").notNull(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
     bookSourceName: text("book_source_name").notNull(),
     bookSourceGroup: text("book_source_group"),
     bookSourceType: integer("book_source_type").default(0).notNull(),
@@ -47,13 +58,19 @@ export const bookSources = pgTable(
     ruleReview: jsonb("rule_review"),
     createdAt: timestamp("created_at").defaultNow(),
   },
-  (table) => [index("idx_book_sources_url").on(table.bookSourceUrl)]
+  (table) => [
+    primaryKey({ columns: [table.bookSourceUrl, table.userId] }),
+    index("idx_book_sources_user_id").on(table.userId),
+  ]
 );
 
 export const books = pgTable(
   "books",
   {
-    bookUrl: text("book_url").primaryKey(),
+    bookUrl: text("book_url").notNull(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
     tocUrl: text("toc_url").default("").notNull(),
     origin: text("origin").default("local").notNull(),
     originName: text("origin_name").default("").notNull(),
@@ -76,16 +93,21 @@ export const books = pgTable(
     variable: text("variable"),
     createdAt: timestamp("created_at").defaultNow(),
   },
-  (table) => [index("idx_books_name_author").on(table.name, table.author)]
+  (table) => [
+    primaryKey({ columns: [table.bookUrl, table.userId] }),
+    index("idx_books_user_id").on(table.userId),
+    index("idx_books_name_author").on(table.name, table.author),
+  ]
 );
 
 export const chapters = pgTable(
   "chapters",
   {
     url: text("url").notNull(),
-    bookUrl: text("book_url")
+    bookUrl: text("book_url").notNull(),
+    userId: text("user_id")
       .notNull()
-      .references(() => books.bookUrl, { onDelete: "cascade" }),
+      .references(() => users.id, { onDelete: "cascade" }),
     title: text("title").notNull(),
     index: integer("chapter_index").notNull(),
     isVolume: boolean("is_volume").default(false).notNull(),
@@ -95,14 +117,17 @@ export const chapters = pgTable(
     variable: text("variable"),
   },
   (table) => [
-    primaryKey({ columns: [table.url, table.bookUrl] }),
-    index("idx_chapters_book_url").on(table.bookUrl),
-    index("idx_chapters_book_url_index").on(table.bookUrl, table.index),
+    primaryKey({ columns: [table.url, table.bookUrl, table.userId] }),
+    index("idx_chapters_book_url").on(table.bookUrl, table.userId),
+    index("idx_chapters_book_url_index").on(table.bookUrl, table.index, table.userId),
   ]
 );
 
 export const replaceRules = pgTable("replace_rules", {
   id: serial("id").primaryKey(),
+  userId: text("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
   name: text("name").notNull(),
   group: text("group_name"),
   pattern: text("pattern").notNull(),
@@ -113,9 +138,16 @@ export const replaceRules = pgTable("replace_rules", {
   sortOrder: integer("sort_order").default(0).notNull(),
 });
 
-export const readProgress = pgTable("read_progress", {
-  bookUrl: text("book_url").primaryKey(),
-  durChapterIndex: integer("dur_chapter_index").default(0).notNull(),
-  durChapterPos: integer("dur_chapter_pos").default(0).notNull(),
-  updatedAt: timestamp("updated_at").defaultNow(),
-});
+export const readProgress = pgTable(
+  "read_progress",
+  {
+    bookUrl: text("book_url").notNull(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    durChapterIndex: integer("dur_chapter_index").default(0).notNull(),
+    durChapterPos: integer("dur_chapter_pos").default(0).notNull(),
+    updatedAt: timestamp("updated_at").defaultNow(),
+  },
+  (table) => [primaryKey({ columns: [table.bookUrl, table.userId] })]
+);

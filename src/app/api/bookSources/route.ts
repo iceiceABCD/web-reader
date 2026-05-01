@@ -2,8 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
 import { bookSources } from "@/lib/db/schema";
 import { eq, like, or, sql } from "drizzle-orm";
+import { getUserId, unauthorized } from "@/lib/auth-helpers";
 
 export async function GET(request: NextRequest) {
+  const userId = await getUserId();
+  if (!userId) return unauthorized();
+
   try {
     const db = getDb();
     const searchParams = request.nextUrl.searchParams;
@@ -13,7 +17,7 @@ export async function GET(request: NextRequest) {
 
     let query = db.select().from(bookSources).$dynamic();
 
-    const conditions = [];
+    const conditions = [eq(bookSources.userId, userId)];
     if (search) {
       conditions.push(
         or(
@@ -29,9 +33,7 @@ export async function GET(request: NextRequest) {
       conditions.push(eq(bookSources.enabled, true));
     }
 
-    if (conditions.length > 0) {
-      query = query.where(sql.join(conditions, sql` AND `));
-    }
+    query = query.where(sql.join(conditions, sql` AND `));
 
     const sources = await query.orderBy(bookSources.customOrder);
     return NextResponse.json(sources);
@@ -45,6 +47,9 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  const userId = await getUserId();
+  if (!userId) return unauthorized();
+
   try {
     const db = getDb();
     const body = await request.json();
@@ -58,6 +63,7 @@ export async function POST(request: NextRequest) {
         .insert(bookSources)
         .values({
           bookSourceUrl: source.bookSourceUrl,
+          userId,
           bookSourceName: source.bookSourceName,
           bookSourceGroup: source.bookSourceGroup,
           bookSourceType: source.bookSourceType ?? 0,
@@ -86,7 +92,7 @@ export async function POST(request: NextRequest) {
           ruleReview: source.ruleReview,
         })
         .onConflictDoUpdate({
-          target: bookSources.bookSourceUrl,
+          target: [bookSources.bookSourceUrl, bookSources.userId],
           set: {
             bookSourceName: source.bookSourceName,
             bookSourceGroup: source.bookSourceGroup,

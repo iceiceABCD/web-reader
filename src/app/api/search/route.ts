@@ -1,10 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb, dbToSource } from "@/lib/db";
 import { bookSources } from "@/lib/db/schema";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { createSourceExecutor } from "@/lib/rule-engine";
+import { getUserId, unauthorized } from "@/lib/auth-helpers";
 
 export async function GET(request: NextRequest) {
+  const userId = await getUserId();
+  if (!userId) return unauthorized();
+
   try {
     const searchParams = request.nextUrl.searchParams;
     const key = searchParams.get("key");
@@ -24,12 +28,16 @@ export async function GET(request: NextRequest) {
         .select()
         .from(bookSources)
         .where(
-          eq(bookSources.bookSourceUrl, sourceUrl)
+          and(
+            eq(bookSources.bookSourceUrl, sourceUrl),
+            eq(bookSources.userId, userId)
+          )
         );
     } else {
       sources = await db
         .select()
-        .from(bookSources);
+        .from(bookSources)
+        .where(eq(bookSources.userId, userId));
     }
 
     const enabledSources = sources.filter((s) => s.enabled);

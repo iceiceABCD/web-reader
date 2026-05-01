@@ -1,12 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
 import { bookSources } from "@/lib/db/schema";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
+import { getUserId, unauthorized } from "@/lib/auth-helpers";
 
 export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ url: string }> }
 ) {
+  const userId = await getUserId();
+  if (!userId) return unauthorized();
+
   try {
     const { url } = await params;
     const db = getDb();
@@ -14,7 +18,12 @@ export async function GET(
     const source = await db
       .select()
       .from(bookSources)
-      .where(eq(bookSources.bookSourceUrl, decodedUrl))
+      .where(
+        and(
+          eq(bookSources.bookSourceUrl, decodedUrl),
+          eq(bookSources.userId, userId)
+        )
+      )
       .limit(1);
 
     if (!source.length) {
@@ -37,6 +46,9 @@ export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ url: string }> }
 ) {
+  const userId = await getUserId();
+  if (!userId) return unauthorized();
+
   try {
     const { url } = await params;
     const db = getDb();
@@ -71,7 +83,12 @@ export async function PUT(
         ruleReview: body.ruleReview,
         lastUpdateTime: Date.now(),
       })
-      .where(eq(bookSources.bookSourceUrl, decodedUrl))
+      .where(
+        and(
+          eq(bookSources.bookSourceUrl, decodedUrl),
+          eq(bookSources.userId, userId)
+        )
+      )
       .returning();
 
     return NextResponse.json(result[0]);
@@ -88,13 +105,21 @@ export async function DELETE(
   _request: NextRequest,
   { params }: { params: Promise<{ url: string }> }
 ) {
+  const userId = await getUserId();
+  if (!userId) return unauthorized();
+
   try {
     const { url } = await params;
     const db = getDb();
     const decodedUrl = decodeURIComponent(url);
     await db
       .delete(bookSources)
-      .where(eq(bookSources.bookSourceUrl, decodedUrl));
+      .where(
+        and(
+          eq(bookSources.bookSourceUrl, decodedUrl),
+          eq(bookSources.userId, userId)
+        )
+      );
 
     return NextResponse.json({ success: true });
   } catch (error) {

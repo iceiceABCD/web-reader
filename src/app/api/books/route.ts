@@ -1,14 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
 import { books } from "@/lib/db/schema";
-import { desc } from "drizzle-orm";
+import { eq, desc } from "drizzle-orm";
+import { getUserId, unauthorized } from "@/lib/auth-helpers";
 
 export async function GET() {
+  const userId = await getUserId();
+  if (!userId) return unauthorized();
+
   try {
     const db = getDb();
     const bookList = await db
       .select()
       .from(books)
+      .where(eq(books.userId, userId))
       .orderBy(desc(books.durChapterTime));
     return NextResponse.json(bookList);
   } catch (error) {
@@ -21,6 +26,9 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
+  const userId = await getUserId();
+  if (!userId) return unauthorized();
+
   try {
     const db = getDb();
     const body = await request.json();
@@ -36,6 +44,7 @@ export async function POST(request: NextRequest) {
       .insert(books)
       .values({
         bookUrl: body.bookUrl,
+        userId,
         tocUrl: body.tocUrl || "",
         origin: body.origin || "local",
         originName: body.originName || "",
@@ -56,7 +65,7 @@ export async function POST(request: NextRequest) {
         variable: body.variable,
       })
       .onConflictDoUpdate({
-        target: books.bookUrl,
+        target: [books.bookUrl, books.userId],
         set: {
           name: body.name,
           author: body.author || "",

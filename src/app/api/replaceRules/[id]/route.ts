@@ -1,12 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
 import { replaceRules } from "@/lib/db/schema";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
+import { getUserId, unauthorized } from "@/lib/auth-helpers";
 
 export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const userId = await getUserId();
+  if (!userId) return unauthorized();
+
   try {
     const { id } = await params;
     const db = getDb();
@@ -24,7 +28,9 @@ export async function PUT(
         enabled: body.enabled,
         sortOrder: body.sortOrder,
       })
-      .where(eq(replaceRules.id, parseInt(id)))
+      .where(
+        and(eq(replaceRules.id, parseInt(id)), eq(replaceRules.userId, userId))
+      )
       .returning();
 
     return NextResponse.json(result[0]);
@@ -41,12 +47,17 @@ export async function DELETE(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const userId = await getUserId();
+  if (!userId) return unauthorized();
+
   try {
     const { id } = await params;
     const db = getDb();
     await db
       .delete(replaceRules)
-      .where(eq(replaceRules.id, parseInt(id)));
+      .where(
+        and(eq(replaceRules.id, parseInt(id)), eq(replaceRules.userId, userId))
+      );
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("Failed to delete replace rule:", error);

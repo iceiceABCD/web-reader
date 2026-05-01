@@ -1,13 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb, dbToSource } from "@/lib/db";
 import { chapters, books, bookSources } from "@/lib/db/schema";
-import { eq, asc } from "drizzle-orm";
+import { eq, asc, and } from "drizzle-orm";
 import { createSourceExecutor } from "@/lib/rule-engine";
+import { getUserId, unauthorized } from "@/lib/auth-helpers";
 
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ url: string }> }
 ) {
+  const userId = await getUserId();
+  if (!userId) return unauthorized();
+
   try {
     const { url } = await params;
     const db = getDb();
@@ -19,7 +23,9 @@ export async function GET(
       const existing = await db
         .select()
         .from(chapters)
-        .where(eq(chapters.bookUrl, decodedUrl))
+        .where(
+          and(eq(chapters.bookUrl, decodedUrl), eq(chapters.userId, userId))
+        )
         .orderBy(asc(chapters.index));
 
       if (existing.length > 0) {
@@ -30,7 +36,9 @@ export async function GET(
     const bookResult = await db
       .select()
       .from(books)
-      .where(eq(books.bookUrl, decodedUrl))
+      .where(
+        and(eq(books.bookUrl, decodedUrl), eq(books.userId, userId))
+      )
       .limit(1);
 
     if (!bookResult.length) {
@@ -41,7 +49,12 @@ export async function GET(
     const sourceResult = await db
       .select()
       .from(bookSources)
-      .where(eq(bookSources.bookSourceUrl, book.origin))
+      .where(
+        and(
+          eq(bookSources.bookSourceUrl, book.origin),
+          eq(bookSources.userId, userId)
+        )
+      )
       .limit(1);
 
     if (!sourceResult.length) {
@@ -56,11 +69,16 @@ export async function GET(
     const chapterList = await executor.getChapterList(tocUrl);
 
     if (chapterList.length > 0) {
-      await db.delete(chapters).where(eq(chapters.bookUrl, decodedUrl));
+      await db
+        .delete(chapters)
+        .where(
+          and(eq(chapters.bookUrl, decodedUrl), eq(chapters.userId, userId))
+        );
 
       const chapterValues = chapterList.map((ch) => ({
         url: ch.url,
         bookUrl: decodedUrl,
+        userId,
         title: ch.title,
         index: ch.index,
         isVolume: ch.isVolume,
@@ -75,7 +93,9 @@ export async function GET(
       await db
         .update(books)
         .set({ totalChapterNum: chapterList.length })
-        .where(eq(books.bookUrl, decodedUrl));
+        .where(
+          and(eq(books.bookUrl, decodedUrl), eq(books.userId, userId))
+        );
     }
 
     return NextResponse.json(chapterList);
