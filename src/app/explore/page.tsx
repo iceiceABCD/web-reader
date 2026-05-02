@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect } from "react";
+import { motion } from "framer-motion";
 import type { SearchBookResult } from "@/lib/types";
 
 interface ExploreCategory {
@@ -59,7 +60,11 @@ export default function ExplorePage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+        <motion.div
+          animate={{ rotate: 360 }}
+          transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+          className="w-8 h-8 border-2 border-primary/30 border-t-primary rounded-full"
+        />
       </div>
     );
   }
@@ -68,19 +73,31 @@ export default function ExplorePage() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold mb-6">发现</h1>
+      <motion.div
+        initial={{ opacity: 0, y: -10 }}
+        animate={{ opacity: 1, y: 0 }}
+      >
+        <h1 className="text-2xl font-serif font-semibold mb-6">发现</h1>
+      </motion.div>
 
       {categories.length === 0 ? (
-        <div className="text-center text-muted-foreground py-10">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="text-center text-muted-foreground py-10"
+        >
+          <div className="text-5xl mb-4 opacity-30">🔍</div>
           <p>暂无发现分类</p>
           <p className="text-sm mt-1">请先导入包含发现规则的书源</p>
-        </div>
+        </motion.div>
       ) : (
         <div className="flex flex-col md:flex-row gap-6">
           <div className="md:w-48 flex-shrink-0">
             <div className="space-y-1">
               {categories.map((cat) => (
-                <button
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
                   key={cat.sourceUrl}
                   onClick={() => {
                     setActiveSource(cat.sourceUrl);
@@ -89,14 +106,14 @@ export default function ExplorePage() {
                       fetchExploreBooks(cat.sourceUrl, cat.categories[0].url);
                     }
                   }}
-                  className={`w-full text-left px-3 py-2 rounded text-sm transition-colors ${
+                  className={`w-full text-left px-3 py-2 rounded-xl text-sm transition-colors ${
                     activeSource === cat.sourceUrl
                       ? "bg-primary text-primary-foreground"
                       : "hover:bg-accent text-muted-foreground"
                   }`}
                 >
                   {cat.sourceName}
-                </button>
+                </motion.button>
               ))}
             </div>
           </div>
@@ -105,27 +122,33 @@ export default function ExplorePage() {
             {currentSource && (
               <div className="flex flex-wrap gap-2 mb-4">
                 {currentSource.categories.map((cat) => (
-                  <button
+                  <motion.button
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
                     key={cat.url}
                     onClick={() => {
                       setActiveCategory(cat.url);
                       fetchExploreBooks(activeSource, cat.url);
                     }}
-                    className={`px-3 py-1 rounded-full text-sm transition-colors ${
+                    className={`px-3 py-1 rounded-xl text-sm transition-colors ${
                       activeCategory === cat.url
                         ? "bg-secondary text-secondary-foreground"
                         : "text-muted-foreground hover:bg-accent"
                     }`}
                   >
                     {cat.title}
-                  </button>
+                  </motion.button>
                 ))}
               </div>
             )}
 
             {booksLoading ? (
               <div className="flex items-center justify-center py-20">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+                <motion.div
+                  animate={{ rotate: 360 }}
+                  transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                  className="w-8 h-8 border-2 border-primary/30 border-t-primary rounded-full"
+                />
               </div>
             ) : (
               <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-4">
@@ -135,7 +158,7 @@ export default function ExplorePage() {
                     href={`/book/${encodeURIComponent(book.bookUrl)}?origin=${encodeURIComponent(book.origin)}`}
                     className="group flex flex-col gap-2"
                   >
-                    <div className="aspect-[3/4] rounded-md overflow-hidden bg-muted">
+                    <div className="aspect-[3/4] rounded-lg overflow-hidden bg-muted">
                       {book.coverUrl ? (
                         <img
                           src={book.coverUrl}

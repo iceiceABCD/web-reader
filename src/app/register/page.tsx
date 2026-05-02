@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { signIn } from "next-auth/react";
 import Link from "next/link";
+import { motion } from "framer-motion";
 
 export default function RegisterPage() {
   const [email, setEmail] = useState("");
@@ -12,7 +13,7 @@ export default function RegisterPage() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const [allowRegister, setAllowRegister] = useState(true); // eslint-disable-line @typescript-eslint/no-unused-vars
+  const [allowRegister, setAllowRegister] = useState(true);
   const router = useRouter();
 
   useEffect(() => {
@@ -25,7 +26,7 @@ export default function RegisterPage() {
         }
       })
       .catch(() => setAllowRegister(true));
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -76,11 +77,19 @@ export default function RegisterPage() {
     }
   };
 
+  if (!allowRegister) {
+    return null;
+  }
+
   return (
-    <div className="flex items-center justify-center min-h-[70vh]">
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="flex items-center justify-center min-h-[70vh]"
+    >
       <div className="w-full max-w-sm space-y-6">
         <div className="text-center">
-          <h1 className="text-2xl font-bold">注册</h1>
+          <h1 className="text-2xl font-serif font-semibold">注册</h1>
           <p className="text-sm text-muted-foreground mt-1">
             创建你的阅读账号
           </p>
@@ -94,7 +103,7 @@ export default function RegisterPage() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
-              className="w-full h-10 rounded-md border bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+              className="w-full h-10 rounded-xl border bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
               placeholder="your@email.com"
             />
           </div>
@@ -106,7 +115,7 @@ export default function RegisterPage() {
               value={name}
               onChange={(e) => setName(e.target.value)}
               required
-              className="w-full h-10 rounded-md border bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+              className="w-full h-10 rounded-xl border bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
               placeholder="你的昵称"
             />
           </div>
@@ -118,7 +127,7 @@ export default function RegisterPage() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
-              className="w-full h-10 rounded-md border bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+              className="w-full h-10 rounded-xl border bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
               placeholder="至少6个字符"
             />
           </div>
@@ -130,7 +139,7 @@ export default function RegisterPage() {
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
               required
-              className="w-full h-10 rounded-md border bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+              className="w-full h-10 rounded-xl border bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
               placeholder="再次输入密码"
             />
           </div>
@@ -139,13 +148,15 @@ export default function RegisterPage() {
             <p className="text-sm text-red-500">{error}</p>
           )}
 
-          <button
+          <motion.button
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
             type="submit"
             disabled={loading}
-            className="w-full h-10 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 disabled:opacity-50"
+            className="w-full h-10 rounded-xl bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 disabled:opacity-50 shadow-sm"
           >
             {loading ? "注册中..." : "注册"}
-          </button>
+          </motion.button>
         </form>
 
         <p className="text-center text-sm text-muted-foreground">
@@ -155,6 +166,6 @@ export default function RegisterPage() {
           </Link>
         </p>
       </div>
-    </div>
+    </motion.div>
   );
 }

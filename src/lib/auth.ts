@@ -8,6 +8,7 @@ import { eq, sql } from "drizzle-orm";
 import { isPrivateMode, getAdminCredentials } from "@/lib/app-mode";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
+  trustHost: true,
   providers: [
     Credentials({
       name: "credentials",

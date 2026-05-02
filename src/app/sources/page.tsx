@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import type { BookSource } from "@/lib/types";
 import Link from "next/link";
 
@@ -110,66 +111,105 @@ export default function SourcesPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+        <motion.div
+          animate={{ rotate: 360 }}
+          transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+          className="w-8 h-8 border-2 border-primary/30 border-t-primary rounded-full"
+        />
       </div>
     );
   }
 
   return (
     <div className="max-w-4xl mx-auto">
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold">书源管理</h1>
+      <motion.div
+        initial={{ opacity: 0, y: -10 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="flex items-center justify-between mb-6"
+      >
+        <h1 className="text-2xl font-serif font-semibold">书源管理</h1>
         <div className="flex gap-2">
-          <button onClick={exportSources} className="px-3 py-1.5 rounded-md text-sm border hover:bg-accent">
+          <motion.button
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            onClick={exportSources}
+            className="px-3 py-1.5 rounded-xl text-sm border hover:bg-accent"
+          >
             导出
-          </button>
-          <button onClick={() => setShowImport(true)} className="px-3 py-1.5 rounded-md text-sm bg-primary text-primary-foreground hover:bg-primary/90">
+          </motion.button>
+          <motion.button
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            onClick={() => setShowImport(true)}
+            className="px-3 py-1.5 rounded-xl text-sm bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm"
+          >
             导入
-          </button>
+          </motion.button>
         </div>
-      </div>
+      </motion.div>
 
-      <div className="mb-4">
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 0.1 }}
+        className="mb-4"
+      >
         <input
           type="text"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && fetchSources()}
           placeholder="搜索书源..."
-          className="w-full h-10 rounded-md border bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+          className="w-full h-10 rounded-xl border bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
         />
-      </div>
+      </motion.div>
 
       <p className="text-sm text-muted-foreground mb-4">
         共 {sources.length} 个书源，已启用 {sources.filter((s) => s.enabled).length} 个
       </p>
 
-      {showImport && (
-        <div className="mb-6 p-4 rounded-lg border bg-card">
-          <h3 className="font-medium mb-2">导入书源</h3>
-          <textarea
-            value={importText}
-            onChange={(e) => setImportText(e.target.value)}
-            placeholder="粘贴 Legado 书源 JSON..."
-            className="w-full h-40 rounded-md border bg-background p-3 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-ring"
-          />
-          <div className="flex gap-2 mt-2">
-            <button onClick={handleImport} disabled={importing} className="px-4 py-1.5 rounded-md text-sm bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50">
-              {importing ? "导入中..." : "确认导入"}
-            </button>
-            <button onClick={() => { setShowImport(false); setImportText(""); }} className="px-4 py-1.5 rounded-md text-sm border hover:bg-accent">
-              取消
-            </button>
-          </div>
-        </div>
-      )}
+      <AnimatePresence>
+        {showImport && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            className="mb-6 p-4 rounded-xl border bg-card space-y-3"
+          >
+            <h3 className="font-medium mb-2">导入书源</h3>
+            <textarea
+              value={importText}
+              onChange={(e) => setImportText(e.target.value)}
+              placeholder="粘贴 Legado 书源 JSON..."
+              className="w-full h-40 rounded-xl border bg-background p-3 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-ring"
+            />
+            <div className="flex gap-2 mt-2">
+              <motion.button
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                onClick={handleImport}
+                disabled={importing}
+                className="px-4 py-1.5 rounded-xl text-sm bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 shadow-sm"
+              >
+                {importing ? "导入中..." : "确认导入"}
+              </motion.button>
+              <button
+                onClick={() => { setShowImport(false); setImportText(""); }}
+                className="px-4 py-1.5 rounded-xl text-sm border hover:bg-accent"
+              >
+                取消
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {Object.entries(groups).map(([group, groupSources]) => (
         <div key={group} className="mb-6">
-          <h2 className="text-lg font-semibold mb-2">{group}</h2>
+          <h2 className="text-lg font-serif font-semibold mb-2">{group}</h2>
           <div className="space-y-2">
             {groupSources.map((source) => (
-              <div key={source.bookSourceUrl} className={`flex items-center gap-3 p-3 rounded-lg border bg-card ${!source.enabled ? "opacity-50" : ""}`}>
+              <div key={source.bookSourceUrl} className={`flex items-center gap-3 p-3 rounded-xl border bg-card ${!source.enabled ? "opacity-50" : ""}`}>
                 <button
                   onClick={() => toggleSource(source)}
                   className={`w-10 h-5 rounded-full transition-colors ${source.enabled ? "bg-primary" : "bg-muted"}`}
@@ -183,8 +223,8 @@ export default function SourcesPage() {
                   <p className="text-xs text-muted-foreground truncate">{source.bookSourceUrl}</p>
                 </div>
                 <div className="flex items-center gap-2">
-                  {source.searchUrl && <span className="px-1.5 py-0.5 rounded bg-green-100 text-green-700 text-[10px] dark:bg-green-900 dark:text-green-300">搜索</span>}
-                  {source.exploreUrl && <span className="px-1.5 py-0.5 rounded bg-blue-100 text-blue-700 text-[10px] dark:bg-blue-900 dark:text-blue-300">发现</span>}
+                  {source.searchUrl && <span className="px-1.5 py-0.5 rounded-xl bg-green-100 text-green-700 text-[10px] dark:bg-green-900 dark:text-green-300">搜索</span>}
+                  {source.exploreUrl && <span className="px-1.5 py-0.5 rounded-xl bg-blue-100 text-blue-700 text-[10px] dark:bg-blue-900 dark:text-blue-300">发现</span>}
                   <button onClick={() => deleteSource(source)} className="text-xs text-red-500 hover:text-red-700">删除</button>
                 </div>
               </div>

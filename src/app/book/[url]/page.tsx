@@ -1,8 +1,9 @@
 "use client";
 
 import { useState, useEffect, Suspense } from "react";
-import type { Book, BookChapter } from "@/lib/types";
 import Link from "next/link";
+import { motion, AnimatePresence } from "framer-motion";
+import type { Book, BookChapter } from "@/lib/types";
 import { useSearchParams } from "next/navigation";
 
 function BookDetailContent() {
@@ -15,6 +16,7 @@ function BookDetailContent() {
   const [loading, setLoading] = useState(true);
   const [chaptersLoading, setChaptersLoading] = useState(false);
   const [inBookshelf, setInBookshelf] = useState(false);
+  const [showAllChapters, setShowAllChapters] = useState(false);
 
   const decodedUrl = decodeURIComponent(bookUrl);
 
@@ -100,7 +102,6 @@ function BookDetailContent() {
     });
     if (res.ok) {
       setInBookshelf(true);
-      alert(`《${book.name}》已加入书架`);
     }
   };
 
@@ -114,20 +115,41 @@ function BookDetailContent() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-20">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+      <div className="flex items-center justify-center py-32">
+        <motion.div
+          animate={{ rotate: 360 }}
+          transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+          className="w-8 h-8 border-2 border-primary/30 border-t-primary rounded-full"
+        />
       </div>
     );
   }
 
   if (!book) {
-    return <div className="text-center py-10">书籍信息获取失败</div>;
+    return (
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        className="text-center py-20"
+      >
+        <div className="text-5xl mb-4 opacity-30">😕</div>
+        <p className="text-muted-foreground">书籍信息获取失败</p>
+      </motion.div>
+    );
   }
+
+  const displayedChapters = showAllChapters ? chapters : chapters.slice(0, 50);
 
   return (
     <div className="max-w-4xl mx-auto">
-      <div className="flex gap-6 mb-8">
-        <div className="w-32 h-44 flex-shrink-0 rounded-lg overflow-hidden bg-muted">
+      {/* Book Header */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="flex gap-6 mb-10"
+      >
+        {/* Cover */}
+        <div className="w-36 h-48 flex-shrink-0 rounded-xl overflow-hidden bg-muted shadow-lg">
           {book.coverUrl ? (
             <img
               src={book.coverUrl}
@@ -136,109 +158,191 @@ function BookDetailContent() {
               referrerPolicy="no-referrer"
             />
           ) : (
-            <div className="w-full h-full flex items-center justify-center bg-secondary p-3">
-              <span className="text-sm text-center">{book.name}</span>
+            <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-secondary to-accent p-4">
+              <span className="text-4xl mb-2 opacity-40">📖</span>
+              <span className="text-sm text-center font-serif">{book.name}</span>
             </div>
           )}
         </div>
-        <div className="flex-1">
-          <h1 className="text-2xl font-bold mb-2">{book.name}</h1>
-          <p className="text-muted-foreground mb-1">{book.author}</p>
-          {book.kind && (
-            <p className="text-sm text-muted-foreground mb-1">{book.kind}</p>
-          )}
+
+        {/* Info */}
+        <div className="flex-1 min-w-0">
+          <h1 className="text-3xl font-serif font-bold text-foreground mb-3">
+            {book.name}
+          </h1>
+          <p className="text-lg text-muted-foreground mb-4">{book.author}</p>
+
+          <div className="flex flex-wrap gap-2 mb-4">
+            {book.kind?.split(",").map((k) => (
+              <span
+                key={k}
+                className="px-2.5 py-1 rounded-full text-xs bg-secondary text-secondary-foreground"
+              >
+                {k.trim()}
+              </span>
+            ))}
+            {book.originName && book.origin !== "local" && (
+              <span className="px-2.5 py-1 rounded-full text-xs bg-primary/10 text-primary">
+                {book.originName}
+              </span>
+            )}
+          </div>
+
           {book.wordCount && (
-            <p className="text-sm text-muted-foreground mb-1">
-              字数: {book.wordCount}
+            <p className="text-sm text-muted-foreground mb-2">
+              字数：{(Number(book.wordCount) / 10000).toFixed(1)} 万
             </p>
           )}
+
           {book.latestChapterTitle && (
-            <p className="text-sm text-muted-foreground mb-1">
-              最新: {book.latestChapterTitle}
+            <p className="text-sm text-muted-foreground mb-4">
+              最新：{book.latestChapterTitle}
             </p>
           )}
-          {book.originName && book.origin !== "local" && (
-            <p className="text-sm text-muted-foreground mb-3">
-              来源: {book.originName}
-            </p>
-          )}
-          <div className="flex gap-2">
+
+          <div className="flex gap-3 mt-6">
             {inBookshelf ? (
               <>
-                <Link
-                  href={`/read/${encodeURIComponent(book.bookUrl)}`}
-                  className="px-4 py-2 rounded-md bg-primary text-primary-foreground text-sm hover:bg-primary/90"
-                >
-                  开始阅读
-                </Link>
-                <button
+                <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+                  <Link
+                    href={`/read/${encodeURIComponent(book.bookUrl)}`}
+                    className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors shadow-sm"
+                  >
+                    <span>▶</span>
+                    开始阅读
+                  </Link>
+                </motion.div>
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
                   onClick={removeFromBookshelf}
-                  className="px-4 py-2 rounded-md border text-sm hover:bg-accent"
+                  className="px-6 py-2.5 rounded-xl border text-sm font-medium hover:bg-accent/50 transition-colors"
                 >
                   移出书架
-                </button>
+                </motion.button>
               </>
             ) : (
-              <button
+              <motion.button
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
                 onClick={addToBookshelf}
-                className="px-4 py-2 rounded-md bg-primary text-primary-foreground text-sm hover:bg-primary/90"
+                className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors shadow-sm"
               >
+                <span>+</span>
                 加入书架
-              </button>
+              </motion.button>
             )}
           </div>
         </div>
-      </div>
+      </motion.div>
 
+      {/* Intro */}
       {book.intro && (
-        <div className="mb-8">
-          <h2 className="font-semibold mb-2">简介</h2>
-          <p className="text-sm text-muted-foreground whitespace-pre-line leading-relaxed">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.1 }}
+          className="mb-10"
+        >
+          <h2 className="text-lg font-serif font-semibold mb-3">简介</h2>
+          <div className="p-5 rounded-xl bg-secondary/30 text-sm text-muted-foreground leading-relaxed whitespace-pre-line">
             {book.intro}
-          </p>
-        </div>
+          </div>
+        </motion.div>
       )}
 
-      <div>
-        <div className="flex items-center justify-between mb-2">
-          <h2 className="font-semibold">目录</h2>
+      {/* Chapters */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.2 }}
+      >
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-serif font-semibold">
+            目录
+            {chapters.length > 0 && (
+              <span className="ml-2 text-sm font-normal text-muted-foreground">
+                共 {chapters.length} 章
+              </span>
+            )}
+          </h2>
           {book.origin !== "local" && (
-            <button
+            <motion.button
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
               onClick={fetchChapters}
               disabled={chaptersLoading}
-              className="text-sm text-primary hover:underline disabled:opacity-50"
+              className="text-sm text-primary hover:text-primary/80 disabled:opacity-50 transition-colors"
             >
-            {chaptersLoading ? "加载中..." : chapters.length > 0 ? "刷新目录" : "加载目录"}
-            </button>
+              {chaptersLoading ? "加载中..." : chapters.length > 0 ? "刷新目录" : "加载目录"}
+            </motion.button>
           )}
         </div>
-        {chapters.length > 0 ? (
-          <div className="space-y-0.5 max-h-[600px] overflow-y-auto border rounded-lg p-2">
-            {chapters.map((ch) => (
-              <Link
-                key={`${ch.url}-${ch.index}`}
-                href={`/read/${encodeURIComponent(book.bookUrl)}?index=${ch.index}`}
-                className="block px-3 py-1.5 text-sm rounded hover:bg-accent truncate"
-              >
-                {ch.isVolume ? (
-                  <span className="font-semibold text-muted-foreground">{ch.title}</span>
-                ) : (
-                  ch.title
-                )}
-              </Link>
-            ))}
-          </div>
-        ) : (
-          <p className="text-sm text-muted-foreground">点击&ldquo;加载目录&rdquo;获取章节列表</p>
-        )}
-      </div>
+
+        <AnimatePresence>
+          {chapters.length > 0 ? (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="border rounded-xl overflow-hidden"
+            >
+              <div className="max-h-[500px] overflow-y-auto">
+                {displayedChapters.map((ch, index) => (
+                  <Link
+                    key={`${ch.url}-${ch.index}`}
+                    href={`/read/${encodeURIComponent(book.bookUrl)}?index=${ch.index}`}
+                    className={`
+                      block px-4 py-3 text-sm transition-colors border-b last:border-b-0
+                      ${ch.isVolume
+                        ? "font-semibold text-muted-foreground bg-secondary/30"
+                        : "text-foreground hover:bg-accent/30"
+                      }
+                      ${index % 2 === 0 ? "bg-card" : "bg-secondary/10"}
+                    `}
+                  >
+                    <span className="truncate block">{ch.title}</span>
+                  </Link>
+                ))}
+              </div>
+              {chapters.length > 50 && !showAllChapters && (
+                <button
+                  onClick={() => setShowAllChapters(true)}
+                  className="w-full py-3 text-sm text-primary hover:bg-accent/30 transition-colors border-t"
+                >
+                  显示全部 {chapters.length} 章
+                </button>
+              )}
+            </motion.div>
+          ) : (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="text-center py-12 rounded-xl border border-dashed"
+            >
+              <p className="text-sm text-muted-foreground">
+                {book.origin === "local"
+                  ? "暂无章节信息"
+                  : "点击「加载目录」获取章节列表"}
+              </p>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </motion.div>
     </div>
   );
 }
 
 export default function BookDetailPage() {
   return (
-    <Suspense fallback={<div className="flex items-center justify-center py-20"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" /></div>}>
+    <Suspense fallback={
+      <div className="flex items-center justify-center py-32">
+        <motion.div
+          animate={{ rotate: 360 }}
+          transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+          className="w-8 h-8 border-2 border-primary/30 border-t-primary rounded-full"
+        />
+      </div>
+    }>
       <BookDetailContent />
     </Suspense>
   );

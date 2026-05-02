@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useRef, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
+import { motion, AnimatePresence } from "framer-motion";
 import type { BookChapter } from "@/lib/types";
 
 interface ChapterContent {
@@ -127,180 +128,323 @@ function ReaderContent() {
           : "";
 
   const themes = [
-    { id: "default", label: "默认", color: "#faf9f6" },
-    { id: "sepia", label: "护眼", color: "#f4ecd8" },
-    { id: "green", label: "绿意", color: "#c7edcc" },
-    { id: "dark", label: "夜间", color: "#1a1a1a" },
+    { id: "default", label: "默认", color: "#faf8f5", textColor: "#2c2c2c" },
+    { id: "sepia", label: "护眼", color: "#f4ecd8", textColor: "#5b4636" },
+    { id: "green", label: "绿意", color: "#c7edcc", textColor: "#1a3a1a" },
+    { id: "dark", label: "夜间", color: "#1a1a1a", textColor: "#c8c4bf" },
   ];
+
+  const progress = chapters.length > 0
+    ? Math.round(((currentIndex + 1) / chapters.length) * 100)
+    : 0;
 
   return (
     <div className={`max-w-3xl mx-auto ${themeClass}`}>
-      <div className="sticky top-14 z-40 flex items-center justify-between px-2 py-2 bg-card/80 backdrop-blur-sm border-b">
-        <button
-          onClick={() => setShowSidebar(!showSidebar)}
-          className="px-3 py-1 rounded text-sm hover:bg-accent"
+      {/* Reader Header */}
+      <motion.div
+        initial={{ opacity: 0, y: -10 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="sticky top-0 z-40 flex items-center justify-between px-4 py-3 bg-card/95 backdrop-blur-md border-b rounded-t-lg"
+      >
+        <motion.button
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+          onClick={() => setShowSidebar(true)}
+          className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm hover:bg-accent/50 transition-colors"
         >
+          <span>📑</span>
           目录
-        </button>
-        <span className="text-sm text-muted-foreground">
-          {currentContent?.title || "加载中..."}
-          {chapters.length > 0 && ` (${currentIndex + 1}/${chapters.length})`}
-        </span>
-        <button
-          onClick={() => setShowSettings(!showSettings)}
-          className="px-3 py-1 rounded text-sm hover:bg-accent"
-        >
-          设置
-        </button>
-      </div>
+        </motion.button>
 
-      {showSidebar && (
-        <div className="fixed inset-0 z-50 flex">
-          <div
-            className="flex-1 bg-black/50"
-            onClick={() => setShowSidebar(false)}
-          />
-          <div className="w-72 bg-card border-l overflow-y-auto">
-            <div className="p-4 border-b flex items-center justify-between">
-              <h3 className="font-semibold">目录</h3>
-              <button
-                onClick={() => setShowSidebar(false)}
-                className="text-sm text-muted-foreground"
-              >
-                关闭
-              </button>
-            </div>
-            <div className="p-2">
-              {chapters.map((ch) => (
-                <button
-                  key={`${ch.url}-${ch.index}`}
-                  onClick={() => {
-                    loadContent(ch.index);
-                    setShowSidebar(false);
-                  }}
-                  className={`block w-full text-left px-3 py-1.5 text-sm rounded truncate ${
-                    ch.index === currentIndex
-                      ? "bg-primary text-primary-foreground"
-                      : ch.isVolume
-                        ? "font-semibold text-muted-foreground"
-                        : "hover:bg-accent"
-                  }`}
-                >
-                  {ch.title}
-                </button>
-              ))}
-            </div>
+        <div className="flex-1 mx-4">
+          <p className="text-sm text-center text-foreground truncate">
+            {currentContent?.title || "加载中..."}
+          </p>
+          <div className="w-full h-0.5 bg-muted rounded-full mt-1 overflow-hidden">
+            <motion.div
+              className="h-full bg-primary"
+              initial={{ width: 0 }}
+              animate={{ width: `${progress}%` }}
+              transition={{ duration: 0.3 }}
+            />
           </div>
         </div>
-      )}
 
-      {showSettings && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
-          <div className="absolute inset-0 bg-black/50" onClick={() => setShowSettings(false)} />
-          <div className="relative bg-card rounded-lg p-6 w-80 space-y-4">
-            <h3 className="font-semibold">阅读设置</h3>
-            <div>
-              <label className="text-sm text-muted-foreground">字号: {fontSize}px</label>
-              <input
-                type="range"
-                min={12}
-                max={32}
-                value={fontSize}
-                onChange={(e) => setFontSize(parseInt(e.target.value))}
-                className="w-full"
-              />
-            </div>
-            <div>
-              <label className="text-sm text-muted-foreground">行距: {lineHeight.toFixed(1)}</label>
-              <input
-                type="range"
-                min={1}
-                max={3}
-                step={0.1}
-                value={lineHeight}
-                onChange={(e) => setLineHeight(parseFloat(e.target.value))}
-                className="w-full"
-              />
-            </div>
-            <div>
-              <label className="text-sm text-muted-foreground block mb-2">主题</label>
-              <div className="flex gap-2">
-                {themes.map((t) => (
+        <motion.button
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+          onClick={() => setShowSettings(true)}
+          className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm hover:bg-accent/50 transition-colors"
+        >
+          <span>⚙️</span>
+          设置
+        </motion.button>
+      </motion.div>
+
+      {/* Sidebar */}
+      <AnimatePresence>
+        {showSidebar && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex"
+          >
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="flex-1 bg-black/40 backdrop-blur-sm"
+              onClick={() => setShowSidebar(false)}
+            />
+            <motion.div
+              initial={{ x: "100%" }}
+              animate={{ x: 0 }}
+              exit={{ x: "100%" }}
+              transition={{ type: "spring", damping: 25, stiffness: 200 }}
+              className="w-80 bg-card border-l shadow-2xl"
+            >
+              <div className="p-4 border-b flex items-center justify-between bg-card">
+                <div>
+                  <h3 className="font-serif font-semibold">目录</h3>
+                  <p className="text-xs text-muted-foreground">
+                    共 {chapters.length} 章
+                  </p>
+                </div>
+                <button
+                  onClick={() => setShowSidebar(false)}
+                  className="p-2 rounded-lg hover:bg-accent/50 transition-colors"
+                >
+                  ✕
+                </button>
+              </div>
+              <div className="overflow-y-auto h-[calc(100vh-80px)]">
+                {chapters.map((ch) => (
                   <button
-                    key={t.id}
-                    onClick={() => setTheme(t.id)}
-                    className={`w-10 h-10 rounded-full border-2 ${theme === t.id ? "border-primary" : "border-border"}`}
-                    style={{ backgroundColor: t.color }}
-                    title={t.label}
-                  />
+                    key={`${ch.url}-${ch.index}`}
+                    onClick={() => {
+                      loadContent(ch.index);
+                      setShowSidebar(false);
+                    }}
+                    className={`
+                      block w-full text-left px-4 py-2.5 text-sm transition-colors border-b border-border/50
+                      ${ch.index === currentIndex
+                        ? "bg-primary/10 text-primary font-medium"
+                        : ch.isVolume
+                          ? "font-semibold text-muted-foreground bg-secondary/30"
+                          : "text-foreground hover:bg-accent/30"
+                      }
+                    `}
+                  >
+                    <span className="truncate block">{ch.title}</span>
+                  </button>
                 ))}
               </div>
-            </div>
-            <button
-              onClick={() => setShowSettings(false)}
-              className="w-full py-2 rounded-md bg-primary text-primary-foreground text-sm"
-            >
-              确定
-            </button>
-          </div>
-        </div>
-      )}
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
-      <div ref={contentRef} className="px-4 py-6 min-h-[60vh]">
+      {/* Settings Modal */}
+      <AnimatePresence>
+        {showSettings && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          >
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+              onClick={() => setShowSettings(false)}
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="relative bg-card rounded-2xl p-6 w-full max-w-sm shadow-2xl"
+            >
+              <h3 className="font-serif font-semibold text-lg mb-6">阅读设置</h3>
+
+              {/* Font Size */}
+              <div className="mb-6">
+                <div className="flex items-center justify-between mb-3">
+                  <label className="text-sm text-muted-foreground">字号</label>
+                  <span className="text-sm font-medium">{fontSize}px</span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className="text-xs text-muted-foreground">A</span>
+                  <input
+                    type="range"
+                    min={12}
+                    max={32}
+                    value={fontSize}
+                    onChange={(e) => setFontSize(parseInt(e.target.value))}
+                    className="flex-1 h-1.5 bg-muted rounded-full appearance-none cursor-pointer accent-primary"
+                  />
+                  <span className="text-lg text-muted-foreground">A</span>
+                </div>
+              </div>
+
+              {/* Line Height */}
+              <div className="mb-6">
+                <div className="flex items-center justify-between mb-3">
+                  <label className="text-sm text-muted-foreground">行距</label>
+                  <span className="text-sm font-medium">{lineHeight.toFixed(1)}</span>
+                </div>
+                <input
+                  type="range"
+                  min={1}
+                  max={3}
+                  step={0.1}
+                  value={lineHeight}
+                  onChange={(e) => setLineHeight(parseFloat(e.target.value))}
+                  className="w-full h-1.5 bg-muted rounded-full appearance-none cursor-pointer accent-primary"
+                />
+              </div>
+
+              {/* Theme */}
+              <div className="mb-6">
+                <label className="text-sm text-muted-foreground block mb-3">主题</label>
+                <div className="flex gap-3">
+                  {themes.map((t) => (
+                    <motion.button
+                      key={t.id}
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                      onClick={() => setTheme(t.id)}
+                      className={`
+                        w-14 h-14 rounded-xl border-2 transition-all shadow-sm
+                        ${theme === t.id
+                          ? "border-primary shadow-md"
+                          : "border-transparent hover:border-border"
+                        }
+                      `}
+                      style={{ backgroundColor: t.color }}
+                      title={t.label}
+                    >
+                      <span
+                        className="text-xs font-medium"
+                        style={{ color: t.textColor }}
+                      >
+                        {t.label}
+                      </span>
+                    </motion.button>
+                  ))}
+                </div>
+              </div>
+
+              <motion.button
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                onClick={() => setShowSettings(false)}
+                className="w-full py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors"
+              >
+                完成
+              </motion.button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Content */}
+      <motion.div
+        ref={contentRef}
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 0.2 }}
+        className="px-6 py-8 min-h-[60vh] bg-reader-bg transition-colors duration-300"
+      >
         {loading ? (
-          <div className="flex items-center justify-center py-20">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+          <div className="flex items-center justify-center py-32">
+            <motion.div
+              animate={{ rotate: 360 }}
+              transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+              className="w-8 h-8 border-2 border-primary/30 border-t-primary rounded-full"
+            />
           </div>
         ) : currentContent ? (
-          <>
-            <h2 className="text-xl font-bold mb-6 text-center text-reader-text">
+          <article>
+            <motion.h2
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="text-2xl font-serif font-bold mb-8 text-center text-reader-text"
+            >
               {currentContent.title}
-            </h2>
-            <div
-              className="prose max-w-none text-reader-text whitespace-pre-wrap break-words"
+            </motion.h2>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.1 }}
+              className="prose max-w-none text-reader-text whitespace-pre-wrap break-words leading-relaxed"
               style={{
                 fontSize: `${fontSize}px`,
                 lineHeight: lineHeight,
               }}
             >
               {currentContent.content}
-            </div>
-          </>
+            </motion.div>
+          </article>
         ) : (
           <p className="text-center text-muted-foreground py-20">内容加载失败</p>
         )}
-      </div>
+      </motion.div>
 
-      <div className="flex items-center justify-between px-4 py-6 border-t">
-        <button
+      {/* Navigation */}
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 0.3 }}
+        className="flex items-center justify-between px-6 py-8 border-t"
+      >
+        <motion.button
+          whileHover={{ scale: 1.02 }}
+          whileTap={{ scale: 0.98 }}
           onClick={() => currentIndex > 0 && loadContent(currentIndex - 1)}
           disabled={currentIndex <= 0}
-          className="px-4 py-2 rounded-md text-sm border hover:bg-accent disabled:opacity-30"
+          className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm border hover:bg-accent/50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
         >
+          <span>←</span>
           上一章
-        </button>
-        <span className="text-sm text-muted-foreground">
+        </motion.button>
+
+        <span className="text-sm text-muted-foreground font-medium">
           {currentIndex + 1} / {chapters.length || "?"}
         </span>
-        <button
+
+        <motion.button
+          whileHover={{ scale: 1.02 }}
+          whileTap={{ scale: 0.98 }}
           onClick={() =>
             chapters.length > 0 &&
             currentIndex < chapters.length - 1 &&
             loadContent(currentIndex + 1)
           }
           disabled={chapters.length === 0 || currentIndex >= chapters.length - 1}
-          className="px-4 py-2 rounded-md text-sm border hover:bg-accent disabled:opacity-30"
+          className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm border hover:bg-accent/50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
         >
           下一章
-        </button>
-      </div>
+          <span>→</span>
+        </motion.button>
+      </motion.div>
     </div>
   );
 }
 
 export default function ReadPage() {
   return (
-    <Suspense fallback={<div className="flex items-center justify-center py-20"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" /></div>}>
+    <Suspense fallback={
+      <div className="flex items-center justify-center py-32">
+        <motion.div
+          animate={{ rotate: 360 }}
+          transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+          className="w-8 h-8 border-2 border-primary/30 border-t-primary rounded-full"
+        />
+      </div>
+    }>
       <ReaderContent />
     </Suspense>
   );

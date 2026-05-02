@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
+import { motion } from "framer-motion";
 import type { SearchBookResult as SearchResultType } from "@/lib/types";
 import Link from "next/link";
 
@@ -64,27 +65,39 @@ export default function SearchPage() {
 
   return (
     <div className="max-w-4xl mx-auto">
-      <h1 className="text-2xl font-bold mb-6">搜索</h1>
-      <div className="flex gap-2 mb-6">
-        <input
-          type="text"
-          value={keyword}
-          onChange={(e) => setKeyword(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && doSearch(keyword)}
-          placeholder="输入书名或作者名..."
-          className="flex-1 h-10 rounded-md border border-border bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-        />
-        <button
-          onClick={() => doSearch(keyword)}
-          disabled={loading}
-          className="h-10 px-6 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 disabled:opacity-50"
-        >
-          {loading ? "搜索中..." : "搜索"}
-        </button>
-      </div>
+      <motion.div
+        initial={{ opacity: 0, y: -10 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="mb-8"
+      >
+        <h1 className="text-2xl font-serif font-semibold mb-6">搜索</h1>
+        <div className="flex gap-2">
+          <input
+            type="text"
+            value={keyword}
+            onChange={(e) => setKeyword(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && doSearch(keyword)}
+            placeholder="输入书名或作者名..."
+            className="flex-1 h-10 rounded-xl border border-border bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+          />
+          <motion.button
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            onClick={() => doSearch(keyword)}
+            disabled={loading}
+            className="h-10 px-6 rounded-xl bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 disabled:opacity-50 shadow-sm"
+          >
+            {loading ? "搜索中..." : "搜索"}
+          </motion.button>
+        </div>
+      </motion.div>
 
       {searchHistory.length > 0 && !loading && results.length === 0 && (
-        <div className="mb-6">
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="mb-6"
+        >
           <div className="flex items-center justify-between mb-2">
             <span className="text-sm text-muted-foreground">搜索历史</span>
             <button
@@ -111,23 +124,31 @@ export default function SearchPage() {
               </button>
             ))}
           </div>
-        </div>
+        </motion.div>
       )}
 
       {loading && (
         <div className="flex items-center justify-center py-20">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+          <motion.div
+            animate={{ rotate: 360 }}
+            transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+            className="w-8 h-8 border-2 border-primary/30 border-t-primary rounded-full"
+          />
         </div>
       )}
 
       {!loading && results.length > 0 && (
-        <div className="space-y-3">
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="space-y-3"
+        >
           {results.map((book, idx) => (
             <div
               key={`${book.bookUrl}-${idx}`}
-              className="flex gap-4 p-4 rounded-lg border bg-card hover:bg-accent/50 transition-colors"
+              className="flex gap-4 p-4 rounded-xl border bg-card hover:bg-accent/50 transition-colors"
             >
-              <div className="w-16 h-20 flex-shrink-0 rounded overflow-hidden bg-muted">
+              <div className="w-16 h-20 flex-shrink-0 rounded-lg overflow-hidden bg-muted">
                 {book.coverUrl ? (
                   <img
                     src={book.coverUrl}
@@ -156,26 +177,28 @@ export default function SearchPage() {
                       {book.author} {book.kind && `· ${book.kind}`}
                     </p>
                   </div>
-                  <button
+                  <motion.button
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
                     onClick={() => addToBookshelf(book)}
-                    className="flex-shrink-0 px-3 py-1 rounded text-xs bg-primary text-primary-foreground hover:bg-primary/90"
+                    className="flex-shrink-0 px-3 py-1 rounded-xl text-xs bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm"
                   >
                     加入书架
-                  </button>
+                  </motion.button>
                 </div>
                 {book.intro && (
                   <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{book.intro}</p>
                 )}
                 <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
                   {book.latestChapter && <span>最新: {book.latestChapter}</span>}
-                  <span className="px-1.5 py-0.5 rounded bg-secondary text-[10px]">
+                  <span className="px-1.5 py-0.5 rounded-xl bg-secondary text-[10px]">
                     {book.originName}
                   </span>
                 </div>
               </div>
             </div>
           ))}
-        </div>
+        </motion.div>
       )}
 
       {!loading && results.length === 0 && keyword && searchHistory.length === 0 && (
