@@ -63,17 +63,21 @@ export function resolveUrl(base: string, relative: string): string {
     return relative;
   }
   if (relative.startsWith("//")) {
-    const protocol = base.startsWith("https") ? "https:" : "http:";
+    const protocol = base.startsWith("https://") ? "https:" : "http:";
     return protocol + relative;
   }
-  if (relative.startsWith("/")) {
+  try {
+    if (relative.startsWith("/")) {
+      const urlObj = new URL(base);
+      return `${urlObj.protocol}//${urlObj.host}${relative}`;
+    }
     const urlObj = new URL(base);
-    return `${urlObj.protocol}//${urlObj.host}${relative}`;
+    const path = urlObj.pathname;
+    const dir = path.substring(0, path.lastIndexOf("/") + 1);
+    return `${urlObj.protocol}//${urlObj.host}${dir}${relative}`;
+  } catch {
+    return base + relative;
   }
-  const urlObj = new URL(base);
-  const path = urlObj.pathname;
-  const dir = path.substring(0, path.lastIndexOf("/") + 1);
-  return `${urlObj.protocol}//${urlObj.host}${dir}${relative}`;
 }
 
 export function parseExploreUrl(exploreUrl: string): Array<{

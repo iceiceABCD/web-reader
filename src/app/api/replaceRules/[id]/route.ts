@@ -13,6 +13,10 @@ export async function PUT(
 
   try {
     const { id } = await params;
+    const numericId = parseInt(id);
+    if (isNaN(numericId)) {
+      return NextResponse.json({ error: "Invalid ID" }, { status: 400 });
+    }
     const db = getDb();
     const body = await request.json();
 
@@ -29,7 +33,7 @@ export async function PUT(
         sortOrder: body.sortOrder,
       })
       .where(
-        and(eq(replaceRules.id, parseInt(id)), eq(replaceRules.userId, userId))
+        and(eq(replaceRules.id, numericId), eq(replaceRules.userId, userId))
       )
       .returning();
 
@@ -52,11 +56,15 @@ export async function DELETE(
 
   try {
     const { id } = await params;
+    const numericId = parseInt(id);
+    if (isNaN(numericId)) {
+      return NextResponse.json({ error: "Invalid ID" }, { status: 400 });
+    }
     const db = getDb();
     await db
       .delete(replaceRules)
       .where(
-        and(eq(replaceRules.id, parseInt(id)), eq(replaceRules.userId, userId))
+        and(eq(replaceRules.id, numericId), eq(replaceRules.userId, userId))
       );
     return NextResponse.json({ success: true });
   } catch (error) {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { signIn } from "next-auth/react";
 import Link from "next/link";
@@ -12,7 +12,20 @@ export default function RegisterPage() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [allowRegister, setAllowRegister] = useState(true); // eslint-disable-line @typescript-eslint/no-unused-vars
   const router = useRouter();
+
+  useEffect(() => {
+    fetch("/api/app-mode")
+      .then((res) => res.json())
+      .then((data) => {
+        setAllowRegister(data.allowRegister);
+        if (!data.allowRegister) {
+          router.push("/login");
+        }
+      })
+      .catch(() => setAllowRegister(true));
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

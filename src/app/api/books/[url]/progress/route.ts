@@ -20,33 +20,35 @@ export async function POST(
     const durChapterIndex = body.durChapterIndex ?? 0;
     const durChapterPos = body.durChapterPos ?? 0;
 
-    await db
-      .update(books)
-      .set({
-        durChapterIndex,
-        durChapterPos,
-        durChapterTime: Date.now(),
-      })
-      .where(
-        and(eq(books.bookUrl, decodedUrl), eq(books.userId, userId))
-      );
-
-    await db
-      .insert(readProgress)
-      .values({
-        bookUrl: decodedUrl,
-        userId,
-        durChapterIndex,
-        durChapterPos,
-      })
-      .onConflictDoUpdate({
-        target: [readProgress.bookUrl, readProgress.userId],
-        set: {
+    await db.transaction(async (tx) => {
+      await tx
+        .update(books)
+        .set({
           durChapterIndex,
           durChapterPos,
-          updatedAt: new Date(),
-        },
-      });
+          durChapterTime: Date.now(),
+        })
+        .where(
+          and(eq(books.bookUrl, decodedUrl), eq(books.userId, userId))
+        );
+
+      await tx
+        .insert(readProgress)
+        .values({
+          bookUrl: decodedUrl,
+          userId,
+          durChapterIndex,
+          durChapterPos,
+        })
+        .onConflictDoUpdate({
+          target: [readProgress.bookUrl, readProgress.userId],
+          set: {
+            durChapterIndex,
+            durChapterPos,
+            updatedAt: new Date(),
+          },
+        });
+    });
 
     return NextResponse.json({ success: true });
   } catch (error) {

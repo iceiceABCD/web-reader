@@ -1,9 +1,11 @@
 import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
+import { v4 as uuidv4 } from "uuid";
 import { getDb } from "@/lib/db";
 import { users } from "@/lib/db/schema";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
+import { isPrivateMode, getAdminCredentials } from "@/lib/app-mode";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   providers: [
@@ -19,6 +21,30 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         }
 
         const db = getDb();
+
+        if (isPrivateMode()) {
+          const { email, password } = getAdminCredentials();
+          if (
+            email &&
+            password &&
+            credentials.email === email &&
+            credentials.password === password
+          ) {
+            const existing = await db.select({ count: sql`count(*)` }).from(users);
+            if (existing[0].count === 0) {
+              const id = uuidv4();
+              const passwordHash = await bcrypt.hash(password, 10);
+              await db.insert(users).values({
+                id,
+                email,
+                name: "管理员",
+                passwordHash,
+              });
+              return { id, email, name: "管理员" };
+            }
+          }
+        }
+
         const user = await db
           .select()
           .from(users)

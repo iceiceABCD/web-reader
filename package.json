@@ -17,6 +17,7 @@
     "bcryptjs": "^3.0.3",
     "cheerio": "^1.2.0",
     "drizzle-orm": "^0.45.2",
+    "epub2": "^3.0.2",
     "iconv-lite": "^0.7.2",
     "jsonpath-plus": "^10.4.0",
     "next": "16.2.4",

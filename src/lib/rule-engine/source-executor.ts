@@ -1,3 +1,4 @@
+import vm from "node:vm";
 import type { BookSource, BookChapter, SearchRule } from "@/lib/types";
 import type { RuleContext, ParsedRule } from "./parser";
 import { parseRule, processTemplate, processPutAndGet } from "./parser";
@@ -188,9 +189,14 @@ export class SourceExecutor {
           ruleToc.nextTocUrl,
           context
         );
-        if (nextUrl && nextUrl !== currentUrl) {
-          currentUrl = resolveUrl(currentUrl, nextUrl);
-          pageCount++;
+        if (nextUrl) {
+          const resolvedNext = resolveUrl(currentUrl, nextUrl);
+          if (resolvedNext !== currentUrl) {
+            currentUrl = resolvedNext;
+            pageCount++;
+          } else {
+            break;
+          }
         } else {
           break;
         }
@@ -245,9 +251,14 @@ export class SourceExecutor {
           ruleContent.nextContentUrl,
           context
         );
-        if (nextUrl && nextUrl !== currentUrl) {
-          currentUrl = resolveUrl(currentUrl, nextUrl);
-          pageCount++;
+        if (nextUrl) {
+          const resolvedNext = resolveUrl(currentUrl, nextUrl);
+          if (resolvedNext !== currentUrl) {
+            currentUrl = resolvedNext;
+            pageCount++;
+          } else {
+            break;
+          }
         } else {
           break;
         }
@@ -326,13 +337,12 @@ export class SourceExecutor {
       return this.executeChainList(content, parsed.chains, context);
     }
 
-    return this.executeListRule(content, parsed, context);
+    return this.executeListRule(content, parsed);
   }
 
   private executeListRule(
     content: unknown,
-    rule: ParsedRule,
-    _context?: RuleContext
+    rule: ParsedRule
   ): unknown[] {
     switch (rule.type) {
       case "css": {
@@ -357,7 +367,7 @@ export class SourceExecutor {
     for (let i = 0; i < chains.length; i++) {
       const chain = chains[i];
       if (i === 0) {
-        current = this.executeListRule(current, chain, context);
+        current = this.executeListRule(current, chain);
       } else {
         if (Array.isArray(current)) {
           current = current.map((item) =>
@@ -502,17 +512,22 @@ export class SourceExecutor {
   ): string {
     try {
       const result = expression
-        .replace(/\$\{result\.(\w+)\}/g, (_, key) => {
-          return context.variableMap[key] || "";
-        })
         .replace(/java\.ajax\([^)]+\)/g, '""')
         .replace(/java\.get[^(]*\([^)]*\)/g, '""')
         .replace(/java\.put[^(]*\([^)]*\)/g, '""');
 
+      if (expression.length > 500) return "";
+
       const text = typeof content === "string" ? content : JSON.stringify(content);
       if (result.includes("result") && text) {
-        const fn = new Function("result", "baseUrl", `"use strict"; return (${result});`);
-        return String(fn(text, context.baseUrl) ?? "");
+        const sandbox: Record<string, unknown> = {
+          result: text,
+          baseUrl: context.baseUrl,
+        };
+        const script = new vm.Script(`"use strict"; (${result});`);
+        const vmContext = vm.createContext(sandbox);
+        const value = script.runInContext(vmContext, { timeout: 1000 });
+        return String(value ?? "");
       }
       return result;
     } catch {

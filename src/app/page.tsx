@@ -29,7 +29,7 @@ export default function BookshelfPage() {
     return (
       <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
         <p className="text-lg mb-2">书架空空如也</p>
-        <p className="text-sm">去 <Link href="/search" className="text-primary hover:underline">搜索</Link> 或 <Link href="/explore" className="text-primary hover:underline">发现</Link> 添加书籍吧</p>
+        <p className="text-sm">去 <Link href="/import" className="text-primary hover:underline">导入</Link>、<Link href="/search" className="text-primary hover:underline">搜索</Link> 或 <Link href="/explore" className="text-primary hover:underline">发现</Link> 添加书籍吧</p>
       </div>
     );
   }

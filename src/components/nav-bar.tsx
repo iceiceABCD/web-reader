@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 
 const navItems = [
   { href: "/", label: "书架" },
+  { href: "/import", label: "导入" },
   { href: "/search", label: "搜索" },
   { href: "/explore", label: "发现" },
   { href: "/sources", label: "书源" },

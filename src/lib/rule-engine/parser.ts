@@ -120,17 +120,23 @@ function splitChains(rule: string): string[] {
 
 function isInsideJsOrRegex(rule: string, pos: number): boolean {
   const before = rule.substring(0, pos);
-  return (
-    before.lastIndexOf("<js>") > before.lastIndexOf("</js>") ||
-    before.lastIndexOf("@js:") > before.lastIndexOf("@js:", pos - 4)
-  );
+  const lastJsOpen = before.lastIndexOf("<js>");
+  const lastJsClose = before.lastIndexOf("</js>");
+  if (lastJsOpen > lastJsClose) return true;
+  const lastJsPrefix = before.lastIndexOf("@js:");
+  if (lastJsPrefix >= 0) {
+    const afterPrefix = before.substring(lastJsPrefix + 4);
+    const hashIdx = afterPrefix.indexOf("##");
+    if (hashIdx < 0) return true;
+  }
+  return false;
 }
 
 export function processTemplate(
   template: string,
   variables: Record<string, string>
 ): string {
-  return template.replace(/\{\{(\w+)\}\}/g, (_, key) => {
+  return template.replace(/\{\{([\w.-]+)\}\}/g, (_, key) => {
     return variables[key] ?? "";
   });
 }
@@ -141,11 +147,10 @@ export function processPutAndGet(
 ): string {
   let result = rule;
 
-  const putMatch = result.match(/@put:\{([^:]+):([^}]*)\}/);
-  if (putMatch) {
-    variableMap[putMatch[1]] = putMatch[2];
-    result = result.replace(/@put:\{[^}]+\}/, "");
-  }
+  result = result.replace(/@put:\{([^:]+):([^}]*)\}/g, (_, key, value) => {
+    variableMap[key] = value;
+    return "";
+  });
 
   result = result.replace(/@get:\{([^}]+)\}/g, (_, key) => {
     return variableMap[key] ?? "";

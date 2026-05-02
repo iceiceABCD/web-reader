@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import type { ReplaceRule } from "@/lib/types";
 
 export default function ReplaceRulesPage() {
@@ -8,20 +8,22 @@ export default function ReplaceRulesPage() {
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editRule, setEditRule] = useState<Partial<ReplaceRule> | null>(null);
-  const [loaded, setLoaded] = useState(false);
 
-  const fetchRules = async () => {
-    const res = await fetch("/api/replaceRules");
-    const data = await res.json();
-    if (Array.isArray(data)) setRules(data);
-    setLoading(false);
-    setLoaded(true);
+  const fetchRules = () => {
+    fetch("/api/replaceRules")
+      .then((res) => res.json())
+      .then((data) => {
+        if (Array.isArray(data)) setRules(data);
+      })
+      .catch((error) => {
+        console.error("Failed to fetch replace rules:", error);
+      })
+      .finally(() => setLoading(false));
   };
 
-  if (!loaded) {
+  useEffect(() => {
     fetchRules();
-    setLoaded(true);
-  }
+  }, []);
 
   const saveRule = async () => {
     if (!editRule?.name || !editRule?.pattern) {
@@ -191,7 +193,7 @@ export default function ReplaceRulesPage() {
                 )}
               </div>
               <button
-                onClick={() => deleteRule(rule.id!)}
+                onClick={() => rule.id && deleteRule(rule.id)}
                 className="text-xs text-red-500 hover:text-red-700"
               >
                 删除

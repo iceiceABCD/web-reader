@@ -151,3 +151,20 @@ export const readProgress = pgTable(
   },
   (table) => [primaryKey({ columns: [table.bookUrl, table.userId] })]
 );
+
+export const chapterContent = pgTable(
+  "chapter_content",
+  {
+    bookUrl: text("book_url").notNull(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    chapterIndex: integer("chapter_index").notNull(),
+    content: text("content").notNull(),
+    createdAt: timestamp("created_at").defaultNow(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.bookUrl, table.userId, table.chapterIndex] }),
+    index("idx_chapter_content_book").on(table.bookUrl, table.userId),
+  ]
+);

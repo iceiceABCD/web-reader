@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, Suspense } from "react";
+import { useState, useEffect, Suspense } from "react";
 import type { Book, BookChapter } from "@/lib/types";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
@@ -15,64 +15,63 @@ function BookDetailContent() {
   const [loading, setLoading] = useState(true);
   const [chaptersLoading, setChaptersLoading] = useState(false);
   const [inBookshelf, setInBookshelf] = useState(false);
-  const [loaded, setLoaded] = useState(false);
 
   const decodedUrl = decodeURIComponent(bookUrl);
 
-  const fetchBookInfo = useCallback(async () => {
-    try {
-      let bookData: Book | null = null;
+  useEffect(() => {
+    let bookData: Book | null = null;
 
-      const bookRes = await fetch(`/api/books/${encodeURIComponent(decodedUrl)}`);
-      if (bookRes.ok) {
-        bookData = await bookRes.json();
-        setBook(bookData);
-        setInBookshelf(true);
-      }
-
-      if (!bookData && origin) {
-        const sourceRes = await fetch(`/api/bookSources/${encodeURIComponent(origin)}`);
-        if (sourceRes.ok) {
-          const sourceData = await sourceRes.json();
-
-          const { createSourceExecutor } = await import("@/lib/rule-engine");
-          const executor = await createSourceExecutor(sourceData);
-          const info = await executor.getBookInfo(decodedUrl);
-
-          if (info) {
-            bookData = {
-              bookUrl: decodedUrl,
-              tocUrl: info.tocUrl || decodedUrl,
-              origin,
-              originName: sourceData.bookSourceName,
-              name: info.name || "",
-              author: info.author || "",
-              kind: info.kind,
-              coverUrl: info.coverUrl,
-              intro: info.intro,
-              type: 0,
-              totalChapterNum: 0,
-              durChapterIndex: 0,
-              durChapterPos: 0,
-              durChapterTime: Date.now(),
-              canUpdate: true,
-              order: 0,
-            };
-            setBook(bookData);
-          }
+    fetch(`/api/books/${encodeURIComponent(decodedUrl)}`)
+      .then((bookRes) => {
+        if (bookRes.ok) return bookRes.json();
+        return null;
+      })
+      .then((data) => {
+        if (data) {
+          bookData = data;
+          setBook(data);
+          setInBookshelf(true);
+          setLoading(false);
+          return;
         }
-      } else if (bookData?.origin) {
-        // source info already embedded in bookData
-      }
-    } finally {
-      setLoading(false);
-      setLoaded(true);
-    }
+        if (!origin) {
+          setLoading(false);
+          return;
+        }
+        return fetch(`/api/bookSources/${encodeURIComponent(origin)}`)
+          .then((sourceRes) => sourceRes.json())
+          .then(async (sourceData) => {
+            const { createSourceExecutor } = await import("@/lib/rule-engine");
+            const executor = await createSourceExecutor(sourceData);
+            const info = await executor.getBookInfo(decodedUrl);
+            if (info) {
+              bookData = {
+                bookUrl: decodedUrl,
+                tocUrl: info.tocUrl || decodedUrl,
+                origin,
+                originName: sourceData.bookSourceName,
+                name: info.name || "",
+                author: info.author || "",
+                kind: info.kind,
+                coverUrl: info.coverUrl,
+                intro: info.intro,
+                type: 0,
+                totalChapterNum: 0,
+                durChapterIndex: 0,
+                durChapterPos: 0,
+                durChapterTime: Date.now(),
+                canUpdate: true,
+                order: 0,
+              };
+              setBook(bookData);
+            }
+          });
+      })
+      .catch((error) => {
+        console.error("Failed to fetch book info:", error);
+      })
+      .finally(() => setLoading(false));
   }, [decodedUrl, origin]);
-
-  if (!loaded) {
-    fetchBookInfo();
-  }
 
   const fetchChapters = async () => {
     if (!book) return;
@@ -85,6 +84,8 @@ function BookDetailContent() {
         const data = await res.json();
         if (Array.isArray(data)) setChapters(data);
       }
+    } catch (error) {
+      console.error("Failed to fetch chapters:", error);
     } finally {
       setChaptersLoading(false);
     }
@@ -156,7 +157,7 @@ function BookDetailContent() {
               最新: {book.latestChapterTitle}
             </p>
           )}
-          {book.originName && (
+          {book.originName && book.origin !== "local" && (
             <p className="text-sm text-muted-foreground mb-3">
               来源: {book.originName}
             </p>
@@ -201,13 +202,15 @@ function BookDetailContent() {
       <div>
         <div className="flex items-center justify-between mb-2">
           <h2 className="font-semibold">目录</h2>
-          <button
-            onClick={fetchChapters}
-            disabled={chaptersLoading}
-            className="text-sm text-primary hover:underline disabled:opacity-50"
-          >
+          {book.origin !== "local" && (
+            <button
+              onClick={fetchChapters}
+              disabled={chaptersLoading}
+              className="text-sm text-primary hover:underline disabled:opacity-50"
+            >
             {chaptersLoading ? "加载中..." : chapters.length > 0 ? "刷新目录" : "加载目录"}
-          </button>
+            </button>
+          )}
         </div>
         {chapters.length > 0 ? (
           <div className="space-y-0.5 max-h-[600px] overflow-y-auto border rounded-lg p-2">

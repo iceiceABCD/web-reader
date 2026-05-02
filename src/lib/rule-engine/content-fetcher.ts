@@ -27,6 +27,7 @@ export async function fetchContent(
     body,
     charset,
     timeout = 10000,
+    cookie,
   } = options;
 
   const defaultHeaders: Record<string, string> = {
@@ -38,6 +39,9 @@ export async function fetchContent(
   };
 
   const mergedHeaders = { ...defaultHeaders, ...headers };
+  if (cookie) {
+    mergedHeaders["Cookie"] = cookie;
+  }
 
   try {
     const response = await ofetch.raw(url, {
@@ -61,10 +65,10 @@ export async function fetchContent(
       }
       if (!encoding) {
         const metaMatch = buffer
-          .toString("utf-8", 0, Math.min(buffer.length, 1024))
+          .toString("utf-8", 0, Math.min(buffer.length, 2048))
           .match(/charset=["']?([^"'\s;>]+)/i);
         if (metaMatch) {
-          encoding = metaMatch[1].trim().toLowerCase();
+          encoding = metaMatch[1].trim().toLowerCase().replace(/["']/g, "");
         }
       }
     }

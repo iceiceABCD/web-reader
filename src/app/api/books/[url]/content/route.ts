@@ -1,9 +1,28 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb, dbToSource } from "@/lib/db";
-import { chapters, books, bookSources, replaceRules } from "@/lib/db/schema";
+import { chapters, books, bookSources, replaceRules, chapterContent } from "@/lib/db/schema";
 import { eq, and } from "drizzle-orm";
 import { createSourceExecutor } from "@/lib/rule-engine";
 import { getUserId, unauthorized } from "@/lib/auth-helpers";
+
+const MAX_CONTENT_LENGTH = 500_000;
+const MAX_REGEX_LENGTH = 200;
+
+function safeRegexReplace(
+  content: string,
+  pattern: string,
+  replacement: string
+): string {
+  if (pattern.length > MAX_REGEX_LENGTH) return content;
+  try {
+    const regex = new RegExp(pattern, "g");
+    const testResult = regex.test("a");
+    if (testResult === false && regex.lastIndex > 100) return content;
+    return content.replace(regex, replacement);
+  } catch {
+    return content;
+  }
+}
 
 export async function GET(
   request: NextRequest,
@@ -32,6 +51,62 @@ export async function GET(
     }
 
     const book = bookResult[0];
+
+    if (book.origin === "local") {
+      const contentResult = await db
+        .select()
+        .from(chapterContent)
+        .where(
+          and(
+            eq(chapterContent.bookUrl, decodedUrl),
+            eq(chapterContent.userId, userId),
+            eq(chapterContent.chapterIndex, index)
+          )
+        )
+        .limit(1);
+
+      let content = contentResult.length > 0 ? contentResult[0].content : "";
+
+      const chapterResult = await db
+        .select()
+        .from(chapters)
+        .where(
+          and(eq(chapters.bookUrl, decodedUrl), eq(chapters.userId, userId))
+        )
+        .limit(1)
+        .offset(index);
+
+      const chapter = chapterResult[0] || { title: "", index, isVolume: false };
+
+      if (content.length > MAX_CONTENT_LENGTH) {
+        content = content.substring(0, MAX_CONTENT_LENGTH);
+      }
+
+      const allReplaceRules = await db
+        .select()
+        .from(replaceRules)
+        .where(
+          and(eq(replaceRules.enabled, true), eq(replaceRules.userId, userId))
+        );
+
+      for (const rule of allReplaceRules) {
+        if (rule.pattern) {
+          if (rule.isRegex) {
+            content = safeRegexReplace(content, rule.pattern, rule.replacement || "");
+          } else {
+            content = content.replaceAll(rule.pattern, rule.replacement || "");
+          }
+        }
+      }
+
+      return NextResponse.json({
+        title: chapter.title,
+        content,
+        index: chapter.index,
+        isVolume: chapter.isVolume,
+      });
+    }
+
     const chapterResult = await db
       .select()
       .from(chapters)
@@ -77,6 +152,10 @@ export async function GET(
     const executor = await createSourceExecutor(dbToSource(sourceResult[0]));
     let content = await executor.getContent(chapter.url);
 
+    if (content.length > MAX_CONTENT_LENGTH) {
+      content = content.substring(0, MAX_CONTENT_LENGTH);
+    }
+
     const allReplaceRules = await db
       .select()
       .from(replaceRules)
@@ -86,17 +165,10 @@ export async function GET(
 
     for (const rule of allReplaceRules) {
       if (rule.pattern) {
-        try {
-          if (rule.isRegex) {
-            content = content.replace(
-              new RegExp(rule.pattern, "g"),
-              rule.replacement || ""
-            );
-          } else {
-            content = content.replaceAll(rule.pattern, rule.replacement || "");
-          }
-        } catch {
-          // skip invalid regex
+        if (rule.isRegex) {
+          content = safeRegexReplace(content, rule.pattern, rule.replacement || "");
+        } else {
+          content = content.replaceAll(rule.pattern, rule.replacement || "");
         }
       }
     }

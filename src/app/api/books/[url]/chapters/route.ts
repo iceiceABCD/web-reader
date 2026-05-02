@@ -46,6 +46,18 @@ export async function GET(
     }
 
     const book = bookResult[0];
+
+    if (book.origin === "local") {
+      const existing = await db
+        .select()
+        .from(chapters)
+        .where(
+          and(eq(chapters.bookUrl, decodedUrl), eq(chapters.userId, userId))
+        )
+        .orderBy(asc(chapters.index));
+      return NextResponse.json(existing);
+    }
+
     const sourceResult = await db
       .select()
       .from(bookSources)
@@ -69,33 +81,37 @@ export async function GET(
     const chapterList = await executor.getChapterList(tocUrl);
 
     if (chapterList.length > 0) {
-      await db
-        .delete(chapters)
-        .where(
-          and(eq(chapters.bookUrl, decodedUrl), eq(chapters.userId, userId))
-        );
+      const limitedChapters = chapterList.slice(0, 5000);
 
-      const chapterValues = chapterList.map((ch) => ({
-        url: ch.url,
-        bookUrl: decodedUrl,
-        userId,
-        title: ch.title,
-        index: ch.index,
-        isVolume: ch.isVolume,
-        isVip: ch.isVip,
-        isPay: ch.isPay,
-        resourceUrl: ch.resourceUrl,
-        variable: ch.variable,
-      }));
+      await db.transaction(async (tx) => {
+        await tx
+          .delete(chapters)
+          .where(
+            and(eq(chapters.bookUrl, decodedUrl), eq(chapters.userId, userId))
+          );
 
-      await db.insert(chapters).values(chapterValues).onConflictDoNothing();
+        const chapterValues = limitedChapters.map((ch) => ({
+          url: ch.url,
+          bookUrl: decodedUrl,
+          userId,
+          title: ch.title,
+          index: ch.index,
+          isVolume: ch.isVolume,
+          isVip: ch.isVip,
+          isPay: ch.isPay,
+          resourceUrl: ch.resourceUrl,
+          variable: ch.variable,
+        }));
 
-      await db
-        .update(books)
-        .set({ totalChapterNum: chapterList.length })
-        .where(
-          and(eq(books.bookUrl, decodedUrl), eq(books.userId, userId))
-        );
+        await tx.insert(chapters).values(chapterValues).onConflictDoNothing();
+
+        await tx
+          .update(books)
+          .set({ totalChapterNum: limitedChapters.length })
+          .where(
+            and(eq(books.bookUrl, decodedUrl), eq(books.userId, userId))
+          );
+      });
     }
 
     return NextResponse.json(chapterList);

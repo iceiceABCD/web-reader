@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback, useRef, Suspense } from "react";
+import { useEffect, useState, useRef, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import type { BookChapter } from "@/lib/types";
 
@@ -15,7 +15,7 @@ function ReaderContent() {
   const searchParams = useSearchParams();
   const bookUrl = typeof window !== "undefined" ? window.location.pathname.replace("/read/", "") : "";
   const decodedUrl = decodeURIComponent(bookUrl);
-  const initialIndex = parseInt(searchParams.get("index") || "0");
+  const initialIndex = parseInt(searchParams.get("index") || "0") || 0;
 
   const [chapters, setChapters] = useState<BookChapter[]>([]);
   const [currentContent, setCurrentContent] = useState<ChapterContent | null>(null);
@@ -36,56 +36,57 @@ function ReaderContent() {
   });
   const [currentIndex, setCurrentIndex] = useState(initialIndex);
   const contentRef = useRef<HTMLDivElement>(null);
+  const chaptersRef = useRef<BookChapter[]>([]);
+  const currentIndexRef = useRef(initialIndex);
 
-  const fetchChapters = useCallback(async () => {
-    try {
-      const res = await fetch(`/api/books/${encodeURIComponent(decodedUrl)}/chapters`);
-      if (res.ok) {
-        const data = await res.json();
-        if (Array.isArray(data)) setChapters(data);
-      }
-    } catch {
-      // ignore
-    }
-  }, [decodedUrl]);
+  useEffect(() => {
+    chaptersRef.current = chapters;
+    currentIndexRef.current = currentIndex;
+  });
 
-  const fetchContent = useCallback(
-    async (index: number) => {
-      if (index < 0 || (chapters.length > 0 && index >= chapters.length)) return;
-      setLoading(true);
-      try {
-        const res = await fetch(
-          `/api/books/${encodeURIComponent(decodedUrl)}/content?index=${index}`
-        );
-        if (res.ok) {
-          const data = await res.json();
-          setCurrentContent(data);
-          setCurrentIndex(index);
-          window.scrollTo(0, 0);
+  const loadContent = (index: number) => {
+    const chs = chaptersRef.current;
+    if (index < 0 || (chs.length > 0 && index >= chs.length)) return;
+    setLoading(true);
+    fetch(`/api/books/${encodeURIComponent(decodedUrl)}/content?index=${index}`)
+      .then((res) => {
+        if (res.ok) return res.json();
+        throw new Error("Failed to fetch content");
+      })
+      .then((data) => {
+        setCurrentContent(data);
+        setCurrentIndex(index);
+        currentIndexRef.current = index;
+        window.scrollTo(0, 0);
+        fetch(`/api/books/${encodeURIComponent(decodedUrl)}/progress`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ durChapterIndex: index, durChapterPos: 0 }),
+        }).catch(() => {});
+      })
+      .catch((error) => {
+        console.error("Failed to fetch content:", error);
+      })
+      .finally(() => setLoading(false));
+  };
 
-          fetch(`/api/books/${encodeURIComponent(decodedUrl)}/progress`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ durChapterIndex: index, durChapterPos: 0 }),
-          }).catch(() => {});
+  useEffect(() => {
+    let cancelled = false;
+    fetch(`/api/books/${encodeURIComponent(decodedUrl)}/chapters`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (cancelled) return;
+        if (Array.isArray(data)) {
+          setChapters(data);
+          chaptersRef.current = data;
+          loadContent(initialIndex);
         }
-      } finally {
-        setLoading(false);
-      }
-    },
-    [decodedUrl, chapters.length]
-  );
-
-  const [initialized, setInitialized] = useState(false);
-
-  if (!initialized) {
-    fetchChapters().then(() => {
-      if (chapters.length > 0) {
-        fetchContent(currentIndex);
-      }
-    });
-    setInitialized(true);
-  }
+      })
+      .catch((error) => {
+        console.error("Failed to fetch chapters:", error);
+      });
+    return () => { cancelled = true; };
+  }, [decodedUrl]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     localStorage.setItem("reader-fontSize", String(fontSize));
@@ -101,18 +102,20 @@ function ReaderContent() {
 
   useEffect(() => {
     const handleKeydown = (e: KeyboardEvent) => {
-      if (e.key === "ArrowLeft" && currentIndex > 0) {
-        fetchContent(currentIndex - 1);
+      const idx = currentIndexRef.current;
+      const chs = chaptersRef.current;
+      if (e.key === "ArrowLeft" && idx > 0) {
+        loadContent(idx - 1);
       } else if (
         e.key === "ArrowRight" &&
-        (chapters.length === 0 || currentIndex < chapters.length - 1)
+        (chs.length === 0 || idx < chs.length - 1)
       ) {
-        fetchContent(currentIndex + 1);
+        loadContent(idx + 1);
       }
     };
     window.addEventListener("keydown", handleKeydown);
     return () => window.removeEventListener("keydown", handleKeydown);
-  }, [currentIndex, chapters.length, fetchContent]);
+  }, [decodedUrl]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const themeClass =
     theme === "sepia"
@@ -172,7 +175,7 @@ function ReaderContent() {
                 <button
                   key={`${ch.url}-${ch.index}`}
                   onClick={() => {
-                    fetchContent(ch.index);
+                    loadContent(ch.index);
                     setShowSidebar(false);
                   }}
                   className={`block w-full text-left px-3 py-1.5 text-sm rounded truncate ${
@@ -270,7 +273,7 @@ function ReaderContent() {
 
       <div className="flex items-center justify-between px-4 py-6 border-t">
         <button
-          onClick={() => currentIndex > 0 && fetchContent(currentIndex - 1)}
+          onClick={() => currentIndex > 0 && loadContent(currentIndex - 1)}
           disabled={currentIndex <= 0}
           className="px-4 py-2 rounded-md text-sm border hover:bg-accent disabled:opacity-30"
         >
@@ -283,7 +286,7 @@ function ReaderContent() {
           onClick={() =>
             chapters.length > 0 &&
             currentIndex < chapters.length - 1 &&
-            fetchContent(currentIndex + 1)
+            loadContent(currentIndex + 1)
           }
           disabled={chapters.length === 0 || currentIndex >= chapters.length - 1}
           className="px-4 py-2 rounded-md text-sm border hover:bg-accent disabled:opacity-30"

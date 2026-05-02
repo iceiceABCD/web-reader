@@ -1,35 +1,43 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useEffect } from "react";
 import type { BookSource } from "@/lib/types";
 import Link from "next/link";
 
 export default function SourcesPage() {
   const [sources, setSources] = useState<BookSource[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [showImport, setShowImport] = useState(false);
   const [importText, setImportText] = useState("");
   const [importing, setImporting] = useState(false);
-  const [loaded, setLoaded] = useState(false);
 
-  const fetchSources = useCallback(async () => {
+  const fetchSources = () => {
     setLoading(true);
     const params = search ? `?search=${encodeURIComponent(search)}` : "";
-    try {
-      const res = await fetch(`/api/bookSources${params}`);
-      const data = await res.json();
-      if (Array.isArray(data)) setSources(data);
-    } finally {
-      setLoading(false);
-      setLoaded(true);
-    }
-  }, [search]);
+    fetch(`/api/bookSources${params}`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (Array.isArray(data)) setSources(data);
+      })
+      .catch((error) => {
+        console.error("Failed to fetch sources:", error);
+      })
+      .finally(() => setLoading(false));
+  };
 
-  if (!loaded) {
-    fetchSources();
-    setLoaded(true);
-  }
+  useEffect(() => {
+    const params = search ? `?search=${encodeURIComponent(search)}` : "";
+    fetch(`/api/bookSources${params}`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (Array.isArray(data)) setSources(data);
+      })
+      .catch((error) => {
+        console.error("Failed to fetch sources:", error);
+      })
+      .finally(() => setLoading(false));
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleImport = async () => {
     if (!importText.trim()) return;
@@ -43,7 +51,7 @@ export default function SourcesPage() {
         return;
       }
       const arr = Array.isArray(parsed) ? parsed : [parsed];
-      const res = await fetch("/api/bookSources", {
+      const res = await fetch("/api/bookSources/import", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(arr),
@@ -99,7 +107,7 @@ export default function SourcesPage() {
     return acc;
   }, {});
 
-  if (loading && !loaded) {
+  if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />

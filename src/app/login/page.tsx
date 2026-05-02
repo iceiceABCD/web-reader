@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -10,7 +10,15 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [allowRegister, setAllowRegister] = useState(true);
   const router = useRouter();
+
+  useEffect(() => {
+    fetch("/api/app-mode")
+      .then((res) => res.json())
+      .then((data) => setAllowRegister(data.allowRegister))
+      .catch(() => setAllowRegister(true));
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -85,12 +93,14 @@ export default function LoginPage() {
           </button>
         </form>
 
-        <p className="text-center text-sm text-muted-foreground">
-          还没有账号？{" "}
-          <Link href="/register" className="text-primary hover:underline">
-            注册
-          </Link>
-        </p>
+        {allowRegister && (
+          <p className="text-center text-sm text-muted-foreground">
+            还没有账号？{" "}
+            <Link href="/register" className="text-primary hover:underline">
+              注册
+            </Link>
+          </p>
+        )}
       </div>
     </div>
   );

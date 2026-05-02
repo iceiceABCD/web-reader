@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import type { SearchBookResult } from "@/lib/types";
 
 interface ExploreCategory {
@@ -28,6 +28,8 @@ export default function ExplorePage() {
         );
         const data = await r.json();
         if (Array.isArray(data)) setBooks(data);
+      } catch (error) {
+        console.error("Failed to fetch explore books:", error);
       } finally {
         setBooksLoading(false);
       }
@@ -35,23 +37,24 @@ export default function ExplorePage() {
     []
   );
 
-  const [loaded, setLoaded] = useState(false);
-
-  if (!loaded) {
+  useEffect(() => {
     fetch("/api/explore")
       .then((r) => r.json())
       .then((data) => {
         if (Array.isArray(data)) {
           setCategories(data);
-          if (data.length > 0 && data[0].categories.length > 0) {
+          if (data.length > 0 && data[0].categories?.length > 0) {
             setActiveSource(data[0].sourceUrl);
             setActiveCategory(data[0].categories[0].url);
             fetchExploreBooks(data[0].sourceUrl, data[0].categories[0].url);
           }
         }
       })
-      .finally(() => { setLoading(false); setLoaded(true); });
-  }
+      .catch((error) => {
+        console.error("Failed to fetch explore categories:", error);
+      })
+      .finally(() => setLoading(false));
+  }, [fetchExploreBooks]);
 
   if (loading) {
     return (

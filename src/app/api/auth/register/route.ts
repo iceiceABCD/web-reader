@@ -4,8 +4,12 @@ import { v4 as uuidv4 } from "uuid";
 import { getDb } from "@/lib/db";
 import { users } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
+import { isPrivateMode } from "@/lib/app-mode";
 
 export async function POST(request: NextRequest) {
+  if (isPrivateMode()) {
+    return NextResponse.json({ error: "注册已关闭" }, { status: 403 });
+  }
   try {
     const body = await request.json();
     const { email, name, password } = body;

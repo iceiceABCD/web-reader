@@ -57,7 +57,8 @@ export async function GET(request: NextRequest) {
               ...b,
               _sourceUrl: source.bookSourceUrl,
             }));
-          } catch {
+          } catch (error) {
+            console.error(`Search failed for source ${source.bookSourceUrl}:`, error);
             return [];
           }
         })
