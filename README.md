@@ -13,12 +13,15 @@
 - **替换净化** — 正则/普通文本替换，去除广告和错别字
 - **规则引擎** — CSS 选择器 + JSONPath + 正则 + 基础 JS，链式规则
 - **模式切换** — 服务模式多人使用，私人模式单人独享
+- **阅读体验** — 温暖阅读配色、Framer Motion 内容入场动画、自定义滚动条
 
 ## 技术栈
 
 | 层级 | 技术 |
 |------|------|
 | 前端 | Next.js 16 + React 19 + Tailwind CSS |
+| 字体 | Noto Serif SC（标题）+ Noto Sans SC（正文） |
+| 动效 | Framer Motion（页面内容入场动画） |
 | 数据库 | Vercel Postgres (Neon) |
 | ORM | Drizzle ORM |
 | 规则引擎 | cheerio (CSS) + jsonpath-plus (JSONPath) |
@@ -198,6 +201,8 @@ src/
 │   ├── register/           # 注册
 │   └── api/                # REST API
 ├── components/             # UI 组件
+│   ├── nav-bar.tsx         # 导航栏（Framer Motion 动效）
+│   └── page-transition.tsx # 页面过渡组件（预留）
 └── lib/
     ├── db/                 # Drizzle ORM Schema + 连接
     ├── rule-engine/        # 规则引擎核心
