@@ -6,55 +6,77 @@ export interface ParsedSearchUrl {
   charset?: string;
 }
 
+/**
+ * Parse a Legado-style search URL.
+ *
+ * Supported formats:
+ * 1. Plain URL: "https://example.com/search?q={{key}}&page={{page}}"
+ * 2. URL with JSON config: "https://example.com/search, {\"method\":\"POST\",\"body\":\"q={{key}}\"}"
+ * 3. @js: prefix: "@js:var url=...; url"  (JS must be executed BEFORE calling this)
+ *
+ * Template variables {{key}}, {{page}}, etc. are replaced before JSON config extraction.
+ */
 export function parseSearchUrl(
   searchUrl: string,
-  variables: Record<string, string> = {}
+  variables: Record<string, string> = {},
+  baseUrl: string = ""
 ): ParsedSearchUrl {
-  let url = searchUrl;
+  let url = searchUrl.trim();
   let method: "GET" | "POST" = "GET";
   let headers: Record<string, string> = {};
   let body: string | undefined;
   let charset: string | undefined;
 
-  const postMatch = url.match(/^(.+?),\s*(\{.*\})\s*$/);
-  if (postMatch) {
-    url = postMatch[1];
+  // Step 1: Replace template variables
+  url = replaceVariables(url, variables);
+
+  // Step 2: Extract JSON config from URL tail
+  // Format: "url, {json config}" or "url,{json config}"
+  const configMatch = url.match(/^(.+?),\s*(\{[\s\S]*\})\s*$/);
+  if (configMatch) {
+    url = configMatch[1].trim();
     try {
-      const config = JSON.parse(postMatch[2]);
-      method = (config.method || "GET").toUpperCase() as "GET" | "POST";
+      const config = JSON.parse(configMatch[2]);
+      if (config.method) {
+        method = String(config.method).toUpperCase() as "GET" | "POST";
+      }
       if (config.body) {
-        body = config.body;
+        body = replaceVariables(String(config.body), variables);
       }
       if (config.charset) {
-        charset = config.charset;
+        charset = String(config.charset);
       }
-      if (config.headers) {
-        headers = config.headers;
-      }
-      if (config.webJs) {
-        // web JS is not supported in server environment
+      if (config.headers && typeof config.headers === "object") {
+        for (const [k, v] of Object.entries(config.headers)) {
+          headers[k] = String(v);
+        }
       }
     } catch {
-      // if not valid JSON, treat as plain body
-      body = postMatch[2];
-      method = "POST";
+      // Not valid JSON config, treat everything as URL
+      url = searchUrl.trim();
     }
   }
 
-  for (const [key, value] of Object.entries(variables)) {
-    const placeholder = `{{${key}}}`;
-    url = url.replace(placeholder, encodeURIComponent(value));
-    if (body) {
-      body = body.replace(placeholder, encodeURIComponent(value));
-    }
+  // Step 3: Resolve relative URL against baseUrl
+  if (baseUrl) {
+    url = resolveUrl(baseUrl, url);
   }
 
-  const pageMatch = url.match(/,\s*page\s*=\s*(\d+)/);
-  if (pageMatch) {
-    url = url.replace(/,\s*page\s*=\s*\d+/, "");
+  // Step 4: Replace remaining template variables in body
+  if (body) {
+    body = replaceVariables(body, variables);
   }
 
   return { url, method, headers, body, charset };
+}
+
+function replaceVariables(
+  template: string,
+  variables: Record<string, string>
+): string {
+  return template.replace(/\{\{([\w.-]+)\}\}/g, (_, key) => {
+    return variables[key] ?? "";
+  });
 }
 
 export function resolveUrl(base: string, relative: string): string {
@@ -80,32 +102,79 @@ export function resolveUrl(base: string, relative: string): string {
   }
 }
 
-export function parseExploreUrl(exploreUrl: string): Array<{
+interface ExploreCategory {
   title: string;
   url: string;
-}> {
-  const categories: Array<{ title: string; url: string }> = [];
-  if (!exploreUrl) return categories;
+}
 
-  const lines = exploreUrl.split("\n");
+/**
+ * Parse exploreUrl into categories.
+ *
+ * Supported formats:
+ * 1. "title::url" pairs (one per line)
+ * 2. "title:url" pairs (one per line, only if title doesn't start with http)
+ * 3. JSON array: [{"title":"玄幻","url":"http://...","style":{...}}]
+ * 4. Plain URL (used as both title and url)
+ */
+export function parseExploreUrl(exploreUrl: string): ExploreCategory[] {
+  if (!exploreUrl) return [];
+
+  const trimmed = exploreUrl.trim();
+
+  // Try JSON array format
+  if (trimmed.startsWith("[")) {
+    try {
+      const arr = JSON.parse(trimmed);
+      if (Array.isArray(arr)) {
+        return arr
+          .filter(
+            (item: unknown) =>
+              typeof item === "object" && item !== null && "title" in item && "url" in item
+          )
+          .map((item: Record<string, unknown>) => ({
+            title: String(item.title),
+            url: String(item.url),
+          }));
+      }
+    } catch {
+      // Not valid JSON, fall through
+    }
+  }
+
+  // Try JSON object with sourceUrls (some sources use this for explore too)
+  if (trimmed.startsWith("{")) {
+    try {
+      const obj = JSON.parse(trimmed);
+      if (Array.isArray(obj.sourceUrls)) {
+        return [];
+      }
+    } catch {
+      // Not valid JSON
+    }
+  }
+
+  // Line-by-line format: "title::url" or "title:url"
+  const categories: ExploreCategory[] = [];
+  const lines = trimmed.split("\n");
   for (const line of lines) {
-    const trimmed = line.trim();
-    if (!trimmed) continue;
-    const sepIdx = trimmed.indexOf("::");
+    const l = line.trim();
+    if (!l) continue;
+
+    const sepIdx = l.indexOf("::");
     if (sepIdx > 0) {
       categories.push({
-        title: trimmed.substring(0, sepIdx).trim(),
-        url: trimmed.substring(sepIdx + 2).trim(),
+        title: l.substring(0, sepIdx).trim(),
+        url: l.substring(sepIdx + 2).trim(),
       });
     } else {
-      const colonIdx = trimmed.indexOf(":");
-      if (colonIdx > 0 && !trimmed.startsWith("http")) {
+      const colonIdx = l.indexOf(":");
+      if (colonIdx > 0 && !l.startsWith("http")) {
         categories.push({
-          title: trimmed.substring(0, colonIdx).trim(),
-          url: trimmed.substring(colonIdx + 1).trim(),
+          title: l.substring(0, colonIdx).trim(),
+          url: l.substring(colonIdx + 1).trim(),
         });
       } else {
-        categories.push({ title: trimmed, url: trimmed });
+        categories.push({ title: l, url: l });
       }
     }
   }

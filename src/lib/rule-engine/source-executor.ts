@@ -34,29 +34,32 @@ export class SourceExecutor {
       searchKey: encodeURIComponent(key),
     };
 
-    const parsed = parseSearchUrl(this.source.searchUrl, variables);
+    // Resolve searchUrl — may contain @js: prefix, relative paths, JSON config
+    let searchUrlStr = this.source.searchUrl;
 
-    let fetchUrl = parsed.url;
-    if (fetchUrl.startsWith("@js:")) {
-      const jsResult = this.evalSimpleJs(
-        fetchUrl.substring(4),
-        "",
-        { baseUrl: this.source.bookSourceUrl, variableMap: this.variableMap }
-      );
-      if (jsResult) fetchUrl = jsResult;
+    // Handle @js: prefix: execute JS to get the actual URL
+    if (searchUrlStr.trim().startsWith("@js:")) {
+      const jsCode = searchUrlStr.trim().substring(4);
+      const jsResult = this.evalJs(jsCode, {
+        ...variables,
+        baseUrl: this.source.bookSourceUrl,
+      });
+      if (jsResult) searchUrlStr = jsResult;
     }
-    fetchUrl = resolveUrl(this.source.bookSourceUrl, fetchUrl);
 
+    const parsed = parseSearchUrl(
+      searchUrlStr,
+      variables,
+      this.source.bookSourceUrl
+    );
     const fetchOptions: FetchOptions = {
       method: parsed.method,
       headers: { ...this.getHeaders(), ...parsed.headers },
-      body: parsed.body
-        ? processTemplate(parsed.body, variables)
-        : undefined,
+      body: parsed.body,
       charset: parsed.charset,
     };
 
-    const result = await fetchContent(fetchUrl, fetchOptions);
+    const result = await fetchContent(parsed.url, fetchOptions);
     const ruleSearch = this.source.ruleSearch;
     if (!ruleSearch || !ruleSearch.bookList) return [];
 
@@ -290,18 +293,15 @@ export class SourceExecutor {
       page: String(page),
     };
 
-    const parsed = parseSearchUrl(exploreUrl, variables);
-    const fetchUrl = resolveUrl(this.source.bookSourceUrl, parsed.url);
+    const parsed = parseSearchUrl(exploreUrl, variables, this.source.bookSourceUrl);
     const fetchOptions: FetchOptions = {
       method: parsed.method,
       headers: { ...this.getHeaders(), ...parsed.headers },
-      body: parsed.body
-        ? processTemplate(parsed.body, variables)
-        : undefined,
+      body: parsed.body,
       charset: parsed.charset,
     };
 
-    const result = await fetchContent(fetchUrl, fetchOptions);
+    const result = await fetchContent(parsed.url, fetchOptions);
     const ruleExplore = this.source.ruleExplore;
     if (!ruleExplore || !ruleExplore.bookList) return [];
 
@@ -518,34 +518,72 @@ export class SourceExecutor {
     return fields;
   }
 
+  /**
+   * Evaluate JavaScript expression in a sandboxed VM.
+   * Used for @js: prefixed rules in searchUrl, exploreUrl, and content rules.
+   */
+  private evalJs(
+    expression: string,
+    extraVars: Record<string, string> = {}
+  ): string {
+    try {
+      const javaObj = {
+        ajax: () => "",
+        get: (key: string) => this.variableMap[key] ?? "",
+        put: (key: string, value: string) => {
+          this.variableMap[key] = value;
+          return value;
+        },
+        log: (msg: string) => console.log("[js]", msg),
+      };
+
+      const sandbox: Record<string, unknown> = {
+        ...extraVars,
+        java: javaObj,
+        encodeURI,
+        encodeURIComponent,
+        decodeURI,
+        decodeURIComponent,
+        JSON,
+        Math,
+        parseInt,
+        parseFloat,
+        String,
+        Number,
+        Boolean,
+        Array,
+        Object,
+        RegExp,
+      };
+
+      // If expression contains "result", set it from content context
+      if (expression.includes("result") && extraVars.result) {
+        sandbox.result = extraVars.result;
+      }
+
+      const script = new vm.Script(`"use strict"; (${expression});`);
+      const vmContext = vm.createContext(sandbox);
+      const value = script.runInContext(vmContext, { timeout: 3000 });
+      return String(value ?? "");
+    } catch (e) {
+      console.error("evalJs error:", e instanceof Error ? e.message : String(e));
+      return "";
+    }
+  }
+
+  /**
+   * Legacy method for rule evaluation — delegates to evalJs.
+   */
   private evalSimpleJs(
     expression: string,
     content: unknown,
     context: RuleContext
   ): string {
-    try {
-      const result = expression
-        .replace(/java\.ajax\([^)]+\)/g, '""')
-        .replace(/java\.get[^(]*\([^)]*\)/g, '""')
-        .replace(/java\.put[^(]*\([^)]*\)/g, '""');
-
-      if (expression.length > 500) return "";
-
-      const text = typeof content === "string" ? content : JSON.stringify(content);
-      if (result.includes("result") && text) {
-        const sandbox: Record<string, unknown> = {
-          result: text,
-          baseUrl: context.baseUrl,
-        };
-        const script = new vm.Script(`"use strict"; (${result});`);
-        const vmContext = vm.createContext(sandbox);
-        const value = script.runInContext(vmContext, { timeout: 1000 });
-        return String(value ?? "");
-      }
-      return result;
-    } catch {
-      return "";
-    }
+    const text = typeof content === "string" ? content : JSON.stringify(content);
+    return this.evalJs(expression, {
+      result: text,
+      baseUrl: context.baseUrl,
+    });
   }
 }
 
