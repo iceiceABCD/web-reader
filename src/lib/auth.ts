@@ -4,7 +4,7 @@ import bcrypt from "bcryptjs";
 import { v4 as uuidv4 } from "uuid";
 import { getDb } from "@/lib/db";
 import { users } from "@/lib/db/schema";
-import { eq, sql } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { isPrivateMode, getAdminCredentials } from "@/lib/app-mode";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
@@ -23,29 +23,35 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
         const db = getDb();
 
+        // 私人模式：仅允许管理员登录
         if (isPrivateMode()) {
           const { email, password } = getAdminCredentials();
-          if (
-            email &&
-            password &&
-            credentials.email === email &&
-            credentials.password === password
-          ) {
-            const existing = await db.select({ count: sql`count(*)` }).from(users);
-            if (existing[0].count === 0) {
-              const id = uuidv4();
-              const passwordHash = await bcrypt.hash(password, 10);
-              await db.insert(users).values({
-                id,
-                email,
-                name: "管理员",
-                passwordHash,
-              });
-              return { id, email, name: "管理员" };
-            }
+          if (!email || !password) return null;
+          if (credentials.email !== email || credentials.password !== password) return null;
+
+          // 查找或创建管理员
+          let user = await db
+            .select()
+            .from(users)
+            .where(eq(users.email, email))
+            .limit(1);
+
+          if (user.length === 0) {
+            const id = uuidv4();
+            const passwordHash = await bcrypt.hash(password, 10);
+            await db.insert(users).values({
+              id,
+              email,
+              name: "管理员",
+              passwordHash,
+            });
+            user = [{ id, email, name: "管理员", passwordHash, createdAt: null }];
           }
+
+          return { id: user[0].id, email: user[0].email, name: user[0].name };
         }
 
+        // 服务模式：通用账号验证
         const user = await db
           .select()
           .from(users)
