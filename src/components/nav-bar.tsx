@@ -10,7 +10,6 @@ const navItems = [
   { href: "/", label: "书架", icon: "📚" },
   { href: "/import", label: "导入", icon: "📂" },
   { href: "/search", label: "搜索", icon: "🔍" },
-  { href: "/explore", label: "发现", icon: "✨" },
   { href: "/sources", label: "书源", icon: "🔗" },
   { href: "/replace-rules", label: "净化", icon: "🧹" },
 ];

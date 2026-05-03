@@ -34,6 +34,9 @@ export default function RootLayout({
           <main className="flex-1 container mx-auto px-4 py-8 max-w-7xl">
             {children}
           </main>
+          <footer className="border-t py-6 text-center text-xs text-muted-foreground">
+            <p>v0.1.0 · Next.js + React + Tailwind CSS · <a href="https://github.com/ksbbs/web-reader" className="hover:text-foreground transition-colors">GitHub</a></p>
+          </footer>
         </SessionProvider>
       </body>
     </html>

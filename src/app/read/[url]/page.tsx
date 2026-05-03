@@ -351,11 +351,8 @@ function ReaderContent() {
       </AnimatePresence>
 
       {/* Content */}
-      <motion.div
+      <div
         ref={contentRef}
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 0.2 }}
         className="px-6 py-8 min-h-[60vh] bg-reader-bg transition-colors duration-300"
       >
         {loading ? (
@@ -367,18 +364,13 @@ function ReaderContent() {
             />
           </div>
         ) : currentContent ? (
-          <article>
-            <motion.h2
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
+          <article key={`chapter-${currentContent.index}`}>
+            <h2
               className="text-2xl font-serif font-bold mb-8 text-center text-reader-text"
             >
               {currentContent.title}
-            </motion.h2>
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.1 }}
+            </h2>
+            <div
               className="prose max-w-none text-reader-text whitespace-pre-wrap break-words leading-relaxed"
               style={{
                 fontSize: `${fontSize}px`,
@@ -386,12 +378,12 @@ function ReaderContent() {
               }}
             >
               {currentContent.content}
-            </motion.div>
+            </div>
           </article>
         ) : (
           <p className="text-center text-muted-foreground py-20">内容加载失败</p>
         )}
-      </motion.div>
+      </div>
 
       {/* Navigation */}
       <motion.div

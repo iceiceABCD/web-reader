@@ -21,16 +21,13 @@ function BookDetailContent() {
   const decodedUrl = decodeURIComponent(bookUrl);
 
   useEffect(() => {
-    let bookData: Book | null = null;
-
     fetch(`/api/books/${encodeURIComponent(decodedUrl)}`)
       .then((bookRes) => {
         if (bookRes.ok) return bookRes.json();
         return null;
       })
       .then((data) => {
-        if (data) {
-          bookData = data;
+        if (data && typeof data === "object" && data.bookUrl) {
           setBook(data);
           setInBookshelf(true);
           setLoading(false);
@@ -47,7 +44,7 @@ function BookDetailContent() {
             const executor = await createSourceExecutor(sourceData);
             const info = await executor.getBookInfo(decodedUrl);
             if (info) {
-              bookData = {
+              const bookData: Book = {
                 bookUrl: decodedUrl,
                 tocUrl: info.tocUrl || decodedUrl,
                 origin,

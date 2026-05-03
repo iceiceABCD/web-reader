@@ -5,8 +5,7 @@
 ## 功能
 
 - **书源管理** — 多种导入方式（URL/文件/剪贴板/批量链接）、预览选择、导出 Legado JSON 格式书源
-- **多源搜索** — 并发搜索多个书源，搜索历史记录
-- **发现浏览** — 按书源分类浏览推荐内容
+- **多源搜索** — 并发搜索多个书源，支持指定书源搜索
 - **本地导入** — 直接上传 TXT/EPUB 文件，自动解析章节和封面
 - **在线阅读** — 章节目录、上下滚动阅读、字号/行距/主题调节
 - **阅读进度** — 自动保存阅读进度，跨设备同步
@@ -336,8 +335,8 @@ ADMIN_PASSWORD=my-secret-password
 ### 搜索书籍
 
 1. 进入「搜索」页面
-2. 输入书名或作者名
-3. 系统将并发搜索所有已启用的书源
+2. 可选择特定书源或搜索全部书源
+3. 输入书名或作者名
 4. 点击搜索结果可查看详情或加入书架
 
 ### 阅读书籍
@@ -380,8 +379,7 @@ ADMIN_PASSWORD=my-secret-password
 | `/api/books/[url]/chapters` | GET | 获取章节列表 |
 | `/api/books/[url]/content` | GET | 获取章节内容 |
 | `/api/books/[url]/progress` | POST | 保存阅读进度 |
-| `/api/search?key=` | GET | 搜索书籍 |
-| `/api/explore` | GET | 获取发现分类/内容 |
+| `/api/search?key=&source=` | GET | 搜索书籍（可选指定书源） |
 | `/api/upload` | POST | 上传 TXT/EPUB 文件 |
 | `/api/replaceRules` | GET/POST | 替换规则管理 |
 | `/api/replaceRules/[id]` | PUT/DELETE | 更新/删除替换规则 |
@@ -395,7 +393,6 @@ src/
 │   ├── page.tsx            # 书架
 │   ├── import/             # 本地导入
 │   ├── search/             # 搜索
-│   ├── explore/            # 发现
 │   ├── sources/            # 书源管理
 │   ├── book/[url]/         # 书籍详情
 │   ├── read/[url]/         # 阅读器
