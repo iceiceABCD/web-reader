@@ -35,6 +35,18 @@ export class SourceExecutor {
     };
 
     const parsed = parseSearchUrl(this.source.searchUrl, variables);
+
+    let fetchUrl = parsed.url;
+    if (fetchUrl.startsWith("@js:")) {
+      const jsResult = this.evalSimpleJs(
+        fetchUrl.substring(4),
+        "",
+        { baseUrl: this.source.bookSourceUrl, variableMap: this.variableMap }
+      );
+      if (jsResult) fetchUrl = jsResult;
+    }
+    fetchUrl = resolveUrl(this.source.bookSourceUrl, fetchUrl);
+
     const fetchOptions: FetchOptions = {
       method: parsed.method,
       headers: { ...this.getHeaders(), ...parsed.headers },
@@ -44,7 +56,7 @@ export class SourceExecutor {
       charset: parsed.charset,
     };
 
-    const result = await fetchContent(parsed.url, fetchOptions);
+    const result = await fetchContent(fetchUrl, fetchOptions);
     const ruleSearch = this.source.ruleSearch;
     if (!ruleSearch || !ruleSearch.bookList) return [];
 
@@ -279,6 +291,7 @@ export class SourceExecutor {
     };
 
     const parsed = parseSearchUrl(exploreUrl, variables);
+    const fetchUrl = resolveUrl(this.source.bookSourceUrl, parsed.url);
     const fetchOptions: FetchOptions = {
       method: parsed.method,
       headers: { ...this.getHeaders(), ...parsed.headers },
@@ -288,7 +301,7 @@ export class SourceExecutor {
       charset: parsed.charset,
     };
 
-    const result = await fetchContent(parsed.url, fetchOptions);
+    const result = await fetchContent(fetchUrl, fetchOptions);
     const ruleExplore = this.source.ruleExplore;
     if (!ruleExplore || !ruleExplore.bookList) return [];
 
