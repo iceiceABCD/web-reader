@@ -4,10 +4,15 @@ import { bookSources } from "@/lib/db/schema";
 import { eq, and } from "drizzle-orm";
 import { createSourceExecutor, parseExploreUrl } from "@/lib/rule-engine";
 import { getUserId, unauthorized } from "@/lib/auth-helpers";
+import { rateLimiter, getClientId } from "@/lib/rate-limit";
 
 export async function GET(request: NextRequest) {
   const userId = await getUserId();
   if (!userId) return unauthorized();
+
+  if (!rateLimiter.check(getClientId(userId, "explore"), 20, 60_000)) {
+    return NextResponse.json({ error: "请求过于频繁，请稍后再试" }, { status: 429 });
+  }
 
   try {
     const searchParams = request.nextUrl.searchParams;

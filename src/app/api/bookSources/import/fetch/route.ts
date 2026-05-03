@@ -1,9 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getUserId, unauthorized } from "@/lib/auth-helpers";
+import { rateLimiter, getClientId } from "@/lib/rate-limit";
 
 export async function POST(request: NextRequest) {
   const userId = await getUserId();
   if (!userId) return unauthorized();
+
+  if (!rateLimiter.check(getClientId(userId, "fetch"), 5, 60_000)) {
+    return NextResponse.json({ error: "请求过于频繁，请稍后再试" }, { status: 429 });
+  }
 
   try {
     const { url } = await request.json();

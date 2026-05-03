@@ -71,7 +71,7 @@ export function extractByCss(
 
 export function extractListByCss(html: string, listSelector: string): unknown[] {
   const $ = cheerio.load(html);
-  return $(listSelector).toArray();
+  return $(listSelector).toArray().map((el) => $(el).html() || "");
 }
 
 export function getElementHtml($: cheerio.CheerioAPI, el: unknown): string {
