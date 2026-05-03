@@ -9,6 +9,7 @@ import { isPrivateMode, getAdminCredentials } from "@/lib/app-mode";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   trustHost: true,
+  debug: process.env.NODE_ENV === "development",
   providers: [
     Credentials({
       name: "credentials",
@@ -21,57 +22,71 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           return null;
         }
 
+        // form-urlencoded 中 + 会被解码为空格，需要还原
+        const inputEmail = String(credentials.email).trim();
+        const inputPassword = String(credentials.password);
+
         const db = getDb();
 
         // 私人模式：仅允许管理员登录
         if (isPrivateMode()) {
           const { email, password } = getAdminCredentials();
-          if (!email || !password) return null;
-          if (credentials.email !== email || credentials.password !== password) return null;
+          if (!email || !password) {
+            console.error("Private mode enabled but ADMIN_EMAIL or ADMIN_PASSWORD is not set");
+            return null;
+          }
+          if (inputEmail !== email || inputPassword !== password) return null;
 
           // 查找或创建管理员
-          let user = await db
-            .select()
-            .from(users)
-            .where(eq(users.email, email))
-            .limit(1);
+          try {
+            let user = await db
+              .select()
+              .from(users)
+              .where(eq(users.email, email))
+              .limit(1);
 
-          if (user.length === 0) {
-            const id = uuidv4();
-            const passwordHash = await bcrypt.hash(password, 10);
-            await db.insert(users).values({
-              id,
-              email,
-              name: "管理员",
-              passwordHash,
-            });
-            user = [{ id, email, name: "管理员", passwordHash, createdAt: null }];
+            if (user.length === 0) {
+              const id = uuidv4();
+              const passwordHash = await bcrypt.hash(password, 10);
+              await db.insert(users).values({
+                id,
+                email,
+                name: "管理员",
+                passwordHash,
+              });
+              user = [{ id, email, name: "管理员", passwordHash, createdAt: null }];
+            }
+
+            return { id: user[0].id, email: user[0].email, name: user[0].name };
+          } catch (error) {
+            console.error("Private mode login DB error:", error);
+            return null;
           }
-
-          return { id: user[0].id, email: user[0].email, name: user[0].name };
         }
 
         // 服务模式：通用账号验证
-        const user = await db
-          .select()
-          .from(users)
-          .where(eq(users.email, credentials.email as string))
-          .limit(1);
+        try {
+          const user = await db
+            .select()
+            .from(users)
+            .where(eq(users.email, inputEmail))
+            .limit(1);
 
-        if (!user.length) return null;
+          if (!user.length) return null;
 
-        const isValid = await bcrypt.compare(
-          credentials.password as string,
-          user[0].passwordHash
-        );
+          const isValid = await bcrypt.compare(inputPassword, user[0].passwordHash);
 
-        if (!isValid) return null;
+          if (!isValid) return null;
 
-        return {
-          id: user[0].id,
-          email: user[0].email,
-          name: user[0].name,
-        };
+          return {
+            id: user[0].id,
+            email: user[0].email,
+            name: user[0].name,
+          };
+        } catch (error) {
+          console.error("Login DB error:", error);
+          return null;
+        }
       },
     }),
   ],

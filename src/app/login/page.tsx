@@ -34,7 +34,11 @@ export default function LoginPage() {
       });
 
       if (result?.error) {
-        setError("邮箱或密码错误");
+        if (result.error === "CallbackRouteError") {
+          setError("登录服务异常，请检查服务器配置");
+        } else {
+          setError("邮箱或密码错误");
+        }
       } else {
         router.push("/");
         router.refresh();
