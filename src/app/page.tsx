@@ -33,6 +33,18 @@ export default function BookshelfPage() {
   const [books, setBooks] = useState<Book[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const deleteBook = async (e: React.MouseEvent, book: Book) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!confirm(`确定删除《${book.name}》？`)) return;
+    const res = await fetch(`/api/books/${encodeURIComponent(book.bookUrl)}`, {
+      method: "DELETE",
+    });
+    if (res.ok) {
+      setBooks((prev) => prev.filter((b) => b.bookUrl !== book.bookUrl));
+    }
+  };
+
   useEffect(() => {
     fetch("/api/books")
       .then((r) => r.json())
@@ -150,6 +162,14 @@ export default function BookshelfPage() {
 
                 {/* Hover Overlay */}
                 <div className="absolute inset-0 bg-primary/0 group-hover:bg-primary/5 transition-colors duration-300" />
+
+                {/* Delete Button */}
+                <button
+                  onClick={(e) => deleteBook(e, book)}
+                  className="absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-black/60 text-white text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600"
+                >
+                  ×
+                </button>
               </div>
 
               {/* Info */}

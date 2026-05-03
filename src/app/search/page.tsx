@@ -1,14 +1,16 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { motion } from "framer-motion";
-import type { SearchBookResult as SearchResultType } from "@/lib/types";
+import type { SearchBookResult as SearchResultType, BookSource } from "@/lib/types";
 import Link from "next/link";
 
 export default function SearchPage() {
   const [keyword, setKeyword] = useState("");
   const [results, setResults] = useState<SearchResultType[]>([]);
   const [loading, setLoading] = useState(false);
+  const [sources, setSources] = useState<BookSource[]>([]);
+  const [selectedSource, setSelectedSource] = useState("");
   const [searchHistory, setSearchHistory] = useState<string[]>(() => {
     if (typeof window === "undefined") return [];
     try {
@@ -18,13 +20,26 @@ export default function SearchPage() {
     }
   });
 
+  useEffect(() => {
+    fetch("/api/bookSources")
+      .then((r) => r.json())
+      .then((data) => {
+        if (Array.isArray(data)) {
+          setSources(data.filter((s: BookSource) => s.searchUrl));
+        }
+      })
+      .catch(() => {});
+  }, []);
+
   const doSearch = useCallback(
     async (key: string) => {
       if (!key.trim()) return;
       setLoading(true);
       setResults([]);
       try {
-        const res = await fetch(`/api/search?key=${encodeURIComponent(key.trim())}`);
+        const params = new URLSearchParams({ key: key.trim() });
+        if (selectedSource) params.set("source", selectedSource);
+        const res = await fetch(`/api/search?${params}`);
         const data = await res.json();
         if (Array.isArray(data)) {
           setResults(data);
@@ -72,6 +87,18 @@ export default function SearchPage() {
       >
         <h1 className="text-2xl font-serif font-semibold mb-6">搜索</h1>
         <div className="flex gap-2">
+          <select
+            value={selectedSource}
+            onChange={(e) => setSelectedSource(e.target.value)}
+            className="h-10 rounded-xl border bg-background px-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring max-w-[140px]"
+          >
+            <option value="">全部书源</option>
+            {sources.map((s) => (
+              <option key={s.bookSourceUrl} value={s.bookSourceUrl}>
+                {s.bookSourceName}
+              </option>
+            ))}
+          </select>
           <input
             type="text"
             value={keyword}
