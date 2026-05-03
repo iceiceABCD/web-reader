@@ -48,7 +48,10 @@ function ReaderContent() {
 
   const loadContent = (index: number) => {
     const chs = chaptersRef.current;
-    if (index < 0 || (chs.length > 0 && index >= chs.length)) return;
+    if (index < 0 || (chs.length > 0 && index >= chs.length)) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     fetch(`/api/books/${encodeURIComponent(decodedUrl)}/content?index=${index}`)
       .then((res) => {
@@ -68,48 +71,45 @@ function ReaderContent() {
       })
       .catch((error) => {
         console.error("Failed to fetch content:", error);
+        setLoading(false);
       })
       .finally(() => setLoading(false));
   };
 
   useEffect(() => {
     let cancelled = false;
-    // If URL specifies an index, use it; otherwise fetch book data to get last position
-    if (urlIndex >= 0) {
-      fetch(`/api/books/${encodeURIComponent(decodedUrl)}/chapters`)
-        .then((res) => res.json())
-        .then((data) => {
-          if (cancelled) return;
-          if (Array.isArray(data)) {
-            setChapters(data);
-            chaptersRef.current = data;
-            loadContent(urlIndex);
+
+    async function init() {
+      try {
+        let startIndex = urlIndex >= 0 ? urlIndex : 0;
+        if (urlIndex < 0) {
+          const bookRes = await fetch(`/api/books/${encodeURIComponent(decodedUrl)}`);
+          if (bookRes.ok) {
+            const bookData = await bookRes.json();
+            if (bookData?.durChapterIndex) {
+              startIndex = bookData.durChapterIndex;
+            }
           }
-        })
-        .catch((error) => {
-          console.error("Failed to fetch chapters:", error);
-        });
-    } else {
-      // No index in URL — fetch book data to restore last reading position
-      fetch(`/api/books/${encodeURIComponent(decodedUrl)}`)
-        .then((res) => res.ok ? res.json() : null)
-        .then((bookData: Book | null) => {
-          const savedIndex = bookData?.durChapterIndex || 0;
-          return fetch(`/api/books/${encodeURIComponent(decodedUrl)}/chapters`)
-            .then((res) => res.json())
-            .then((data) => {
-              if (cancelled) return;
-              if (Array.isArray(data)) {
-                setChapters(data);
-                chaptersRef.current = data;
-                loadContent(savedIndex);
-              }
-            });
-        })
-        .catch((error) => {
-          console.error("Failed to fetch chapters:", error);
-        });
+        }
+
+        const chRes = await fetch(`/api/books/${encodeURIComponent(decodedUrl)}/chapters`);
+        const chData = await chRes.json();
+        if (cancelled) return;
+
+        if (Array.isArray(chData)) {
+          setChapters(chData);
+          chaptersRef.current = chData;
+          loadContent(startIndex);
+        } else {
+          setLoading(false);
+        }
+      } catch (error) {
+        console.error("Failed to fetch chapters:", error);
+        setLoading(false);
+      }
     }
+
+    init();
     return () => { cancelled = true; };
   }, [decodedUrl]); // eslint-disable-line react-hooks/exhaustive-deps
 

@@ -21,55 +21,64 @@ function BookDetailContent() {
   const decodedUrl = decodeURIComponent(bookUrl);
 
   useEffect(() => {
-    fetch(`/api/books/${encodeURIComponent(decodedUrl)}`)
-      .then((bookRes) => {
-        if (bookRes.ok) return bookRes.json();
-        return null;
-      })
-      .then((data) => {
+    let cancelled = false;
+
+    async function init() {
+      try {
+        const bookRes = await fetch(`/api/books/${encodeURIComponent(decodedUrl)}`);
+        let data: any = null;
+        if (bookRes.ok) {
+          data = await bookRes.json();
+        }
+        if (cancelled) return;
+
         if (data && typeof data === "object" && data.bookUrl) {
           setBook(data);
           setInBookshelf(true);
-          setLoading(false);
           return;
         }
-        if (!origin) {
-          setLoading(false);
-          return;
+
+        if (!origin) return;
+
+        const sourceRes = await fetch(`/api/bookSources/${encodeURIComponent(origin)}`);
+        const sourceData = await sourceRes.json();
+        if (cancelled) return;
+
+        const { createSourceExecutor } = await import("@/lib/rule-engine");
+        const executor = await createSourceExecutor(sourceData);
+        const info = await executor.getBookInfo(decodedUrl);
+        if (cancelled) return;
+
+        if (info) {
+          const bookData: Book = {
+            bookUrl: decodedUrl,
+            tocUrl: info.tocUrl || decodedUrl,
+            origin,
+            originName: sourceData.bookSourceName,
+            name: info.name || "",
+            author: info.author || "",
+            kind: info.kind,
+            coverUrl: info.coverUrl,
+            intro: info.intro,
+            type: 0,
+            totalChapterNum: 0,
+            durChapterIndex: 0,
+            durChapterPos: 0,
+            durChapterTime: Date.now(),
+            canUpdate: true,
+            order: 0,
+          };
+          setBook(bookData);
         }
-        return fetch(`/api/bookSources/${encodeURIComponent(origin)}`)
-          .then((sourceRes) => sourceRes.json())
-          .then(async (sourceData) => {
-            const { createSourceExecutor } = await import("@/lib/rule-engine");
-            const executor = await createSourceExecutor(sourceData);
-            const info = await executor.getBookInfo(decodedUrl);
-            if (info) {
-              const bookData: Book = {
-                bookUrl: decodedUrl,
-                tocUrl: info.tocUrl || decodedUrl,
-                origin,
-                originName: sourceData.bookSourceName,
-                name: info.name || "",
-                author: info.author || "",
-                kind: info.kind,
-                coverUrl: info.coverUrl,
-                intro: info.intro,
-                type: 0,
-                totalChapterNum: 0,
-                durChapterIndex: 0,
-                durChapterPos: 0,
-                durChapterTime: Date.now(),
-                canUpdate: true,
-                order: 0,
-              };
-              setBook(bookData);
-            }
-          });
-      })
-      .catch((error) => {
+      } catch (error) {
         console.error("Failed to fetch book info:", error);
-      })
-      .finally(() => setLoading(false));
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+
+    init();
+    return () => { cancelled = true; };
   }, [decodedUrl, origin]);
 
   const fetchChapters = async () => {
