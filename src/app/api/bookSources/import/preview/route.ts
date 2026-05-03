@@ -20,7 +20,7 @@ export async function POST(request: NextRequest) {
       .filter((s: Record<string, unknown>) => s.bookSourceUrl)
       .map((s: Record<string, unknown>) => s.bookSourceUrl as string);
 
-    let existingMap = new Map<string, Record<string, unknown>>();
+    const existingMap = new Map<string, Record<string, unknown>>();
     if (urls.length > 0) {
       const existing = await db
         .select({ bookSourceUrl: bookSources.bookSourceUrl, lastUpdateTime: bookSources.lastUpdateTime })

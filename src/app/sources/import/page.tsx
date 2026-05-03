@@ -267,7 +267,6 @@ export default function SourceImportPage() {
   const selectedCount = previewItems.filter((i) => i.selected).length;
   const selectedNew = previewItems.filter((i) => i.selected && i.status === "new").length;
   const selectedUpdate = previewItems.filter((i) => i.selected && i.status === "update").length;
-  const selectedSame = previewItems.filter((i) => i.selected && i.status === "same").length;
 
   return (
     <div className="max-w-4xl mx-auto">
