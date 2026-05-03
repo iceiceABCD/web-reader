@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import type { BookChapter } from "@/lib/types";
+import type { Book, BookChapter } from "@/lib/types";
 
 interface ChapterContent {
   title: string;
@@ -16,13 +16,14 @@ function ReaderContent() {
   const searchParams = useSearchParams();
   const bookUrl = typeof window !== "undefined" ? window.location.pathname.replace("/read/", "") : "";
   const decodedUrl = decodeURIComponent(bookUrl);
-  const initialIndex = parseInt(searchParams.get("index") || "0") || 0;
+  const urlIndex = parseInt(searchParams.get("index") || "-1") || -1;
 
   const [chapters, setChapters] = useState<BookChapter[]>([]);
   const [currentContent, setCurrentContent] = useState<ChapterContent | null>(null);
   const [loading, setLoading] = useState(true);
   const [showSidebar, setShowSidebar] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [showTopBtn, setShowTopBtn] = useState(false);
   const [fontSize, setFontSize] = useState(() => {
     if (typeof window === "undefined") return 18;
     return parseInt(localStorage.getItem("reader-fontSize") || "18");
@@ -35,10 +36,10 @@ function ReaderContent() {
     if (typeof window === "undefined") return "default";
     return localStorage.getItem("reader-theme") || "default";
   });
-  const [currentIndex, setCurrentIndex] = useState(initialIndex);
+  const [currentIndex, setCurrentIndex] = useState(urlIndex >= 0 ? urlIndex : 0);
   const contentRef = useRef<HTMLDivElement>(null);
   const chaptersRef = useRef<BookChapter[]>([]);
-  const currentIndexRef = useRef(initialIndex);
+  const currentIndexRef = useRef(urlIndex >= 0 ? urlIndex : 0);
 
   useEffect(() => {
     chaptersRef.current = chapters;
@@ -73,21 +74,52 @@ function ReaderContent() {
 
   useEffect(() => {
     let cancelled = false;
-    fetch(`/api/books/${encodeURIComponent(decodedUrl)}/chapters`)
-      .then((res) => res.json())
-      .then((data) => {
-        if (cancelled) return;
-        if (Array.isArray(data)) {
-          setChapters(data);
-          chaptersRef.current = data;
-          loadContent(initialIndex);
-        }
-      })
-      .catch((error) => {
-        console.error("Failed to fetch chapters:", error);
-      });
+    // If URL specifies an index, use it; otherwise fetch book data to get last position
+    if (urlIndex >= 0) {
+      fetch(`/api/books/${encodeURIComponent(decodedUrl)}/chapters`)
+        .then((res) => res.json())
+        .then((data) => {
+          if (cancelled) return;
+          if (Array.isArray(data)) {
+            setChapters(data);
+            chaptersRef.current = data;
+            loadContent(urlIndex);
+          }
+        })
+        .catch((error) => {
+          console.error("Failed to fetch chapters:", error);
+        });
+    } else {
+      // No index in URL — fetch book data to restore last reading position
+      fetch(`/api/books/${encodeURIComponent(decodedUrl)}`)
+        .then((res) => res.ok ? res.json() : null)
+        .then((bookData: Book | null) => {
+          const savedIndex = bookData?.durChapterIndex || 0;
+          return fetch(`/api/books/${encodeURIComponent(decodedUrl)}/chapters`)
+            .then((res) => res.json())
+            .then((data) => {
+              if (cancelled) return;
+              if (Array.isArray(data)) {
+                setChapters(data);
+                chaptersRef.current = data;
+                loadContent(savedIndex);
+              }
+            });
+        })
+        .catch((error) => {
+          console.error("Failed to fetch chapters:", error);
+        });
+    }
     return () => { cancelled = true; };
   }, [decodedUrl]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    const handleScroll = () => {
+      setShowTopBtn(window.scrollY > 400);
+    };
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
 
   useEffect(() => {
     localStorage.setItem("reader-fontSize", String(fontSize));
@@ -384,6 +416,21 @@ function ReaderContent() {
           <p className="text-center text-muted-foreground py-20">内容加载失败</p>
         )}
       </div>
+
+      {/* Back to top button */}
+      <AnimatePresence>
+        {showTopBtn && (
+          <motion.button
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.8 }}
+            onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+            className="fixed bottom-8 right-8 z-40 w-10 h-10 rounded-full bg-primary text-primary-foreground shadow-lg hover:bg-primary/90 transition-colors"
+          >
+            ↑
+          </motion.button>
+        )}
+      </AnimatePresence>
 
       {/* Navigation */}
       <motion.div
