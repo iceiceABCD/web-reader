@@ -18,7 +18,8 @@ interface ParsedEpubBook {
 }
 
 export async function parseEpubFile(buffer: Buffer, fileName: string): Promise<ParsedEpubBook> {
-  const tmpPath = path.join(os.tmpdir(), `reader-${Date.now()}-${Math.random().toString(36).slice(2)}.epub`);
+  const tmpDir = os.tmpdir();
+  const tmpPath = path.join(tmpDir, `reader-${Date.now()}-${Math.random().toString(36).slice(2)}.epub`);
   try {
     fs.writeFileSync(tmpPath, buffer);
     const epub = await EPub.createAsync(tmpPath);

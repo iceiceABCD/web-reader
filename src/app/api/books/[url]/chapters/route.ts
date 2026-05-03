@@ -79,10 +79,9 @@ export async function GET(
     const executor = await createSourceExecutor(dbToSource(sourceResult[0]));
     const tocUrl = book.tocUrl || book.bookUrl;
     const chapterList = await executor.getChapterList(tocUrl);
+    const limitedChapters = chapterList.slice(0, 5000);
 
-    if (chapterList.length > 0) {
-      const limitedChapters = chapterList.slice(0, 5000);
-
+    if (limitedChapters.length > 0) {
       await db.transaction(async (tx) => {
         await tx
           .delete(chapters)
@@ -114,7 +113,7 @@ export async function GET(
       });
     }
 
-    return NextResponse.json(chapterList);
+    return NextResponse.json(limitedChapters);
   } catch (error) {
     console.error("Failed to fetch chapters:", error);
     return NextResponse.json(

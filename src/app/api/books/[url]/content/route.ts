@@ -15,10 +15,7 @@ function safeRegexReplace(
 ): string {
   if (pattern.length > MAX_REGEX_LENGTH) return content;
   try {
-    const regex = new RegExp(pattern, "g");
-    const testResult = regex.test("a");
-    if (testResult === false && regex.lastIndex > 100) return content;
-    return content.replace(regex, replacement);
+    return content.replace(new RegExp(pattern, "g"), replacement);
   } catch {
     return content;
   }
@@ -71,10 +68,13 @@ export async function GET(
         .select()
         .from(chapters)
         .where(
-          and(eq(chapters.bookUrl, decodedUrl), eq(chapters.userId, userId))
+          and(
+            eq(chapters.bookUrl, decodedUrl),
+            eq(chapters.userId, userId),
+            eq(chapters.index, index)
+          )
         )
-        .limit(1)
-        .offset(index);
+        .limit(1);
 
       const chapter = chapterResult[0] || { title: "", index, isVolume: false };
 
@@ -111,10 +111,13 @@ export async function GET(
       .select()
       .from(chapters)
       .where(
-        and(eq(chapters.bookUrl, decodedUrl), eq(chapters.userId, userId))
+        and(
+          eq(chapters.bookUrl, decodedUrl),
+          eq(chapters.userId, userId),
+          eq(chapters.index, index)
+        )
       )
-      .limit(1)
-      .offset(index);
+      .limit(1);
 
     if (!chapterResult.length) {
       return NextResponse.json(
