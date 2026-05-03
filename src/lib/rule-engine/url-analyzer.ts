@@ -23,7 +23,7 @@ export function parseSearchUrl(
 ): ParsedSearchUrl {
   let url = searchUrl.trim();
   let method: "GET" | "POST" = "GET";
-  let headers: Record<string, string> = {};
+  const headers: Record<string, string> = {};
   let body: string | undefined;
   let charset: string | undefined;
 

@@ -1,7 +1,7 @@
 import vm from "node:vm";
 import type { BookSource, BookChapter, SearchRule } from "@/lib/types";
 import type { RuleContext, ParsedRule } from "./parser";
-import { parseRule, processTemplate, processPutAndGet } from "./parser";
+import { parseRule, processPutAndGet } from "./parser";
 import { extractByCss, extractListByCss, getElementHtml } from "./css-selector";
 import { queryByJsonPath, queryByJsonPathString } from "./jsonpath";
 import { fetchContent, type FetchOptions } from "./content-fetcher";
