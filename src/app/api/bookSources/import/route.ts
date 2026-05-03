@@ -11,9 +11,9 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const sources = Array.isArray(body) ? body : [body];
 
-    if (sources.length > 100) {
+    if (sources.length > 500) {
       return NextResponse.json(
-        { error: "一次最多导入100个书源" },
+        { error: "一次最多导入500个书源" },
         { status: 400 }
       );
     }

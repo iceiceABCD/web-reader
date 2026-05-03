@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import type { BookSource } from "@/lib/types";
 import Link from "next/link";
 
@@ -9,9 +9,6 @@ export default function SourcesPage() {
   const [sources, setSources] = useState<BookSource[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
-  const [showImport, setShowImport] = useState(false);
-  const [importText, setImportText] = useState("");
-  const [importing, setImporting] = useState(false);
 
   const fetchSources = () => {
     setLoading(true);
@@ -39,39 +36,6 @@ export default function SourcesPage() {
       })
       .finally(() => setLoading(false));
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
-  const handleImport = async () => {
-    if (!importText.trim()) return;
-    setImporting(true);
-    try {
-      let parsed;
-      try {
-        parsed = JSON.parse(importText);
-      } catch {
-        alert("JSON 格式错误，请检查输入");
-        return;
-      }
-      const arr = Array.isArray(parsed) ? parsed : [parsed];
-      const res = await fetch("/api/bookSources/import", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(arr),
-      });
-      if (res.ok) {
-        const count = (await res.json()).length;
-        alert(`成功导入 ${count} 个书源`);
-        setShowImport(false);
-        setImportText("");
-        fetchSources();
-      } else {
-        alert("导入失败");
-      }
-    } catch {
-      alert("导入出错");
-    } finally {
-      setImporting(false);
-    }
-  };
 
   const toggleSource = async (source: BookSource) => {
     await fetch(`/api/bookSources/${encodeURIComponent(source.bookSourceUrl)}`, {
@@ -137,14 +101,15 @@ export default function SourcesPage() {
           >
             导出
           </motion.button>
-          <motion.button
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            onClick={() => setShowImport(true)}
-            className="px-3 py-1.5 rounded-xl text-sm bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm"
-          >
-            导入
-          </motion.button>
+          <Link href="/sources/import">
+            <motion.button
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              className="px-3 py-1.5 rounded-xl text-sm bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm"
+            >
+              导入
+            </motion.button>
+          </Link>
         </div>
       </motion.div>
 
@@ -167,42 +132,6 @@ export default function SourcesPage() {
       <p className="text-sm text-muted-foreground mb-4">
         共 {sources.length} 个书源，已启用 {sources.filter((s) => s.enabled).length} 个
       </p>
-
-      <AnimatePresence>
-        {showImport && (
-          <motion.div
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            className="mb-6 p-4 rounded-xl border bg-card space-y-3"
-          >
-            <h3 className="font-medium mb-2">导入书源</h3>
-            <textarea
-              value={importText}
-              onChange={(e) => setImportText(e.target.value)}
-              placeholder="粘贴 Legado 书源 JSON..."
-              className="w-full h-40 rounded-xl border bg-background p-3 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-ring"
-            />
-            <div className="flex gap-2 mt-2">
-              <motion.button
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                onClick={handleImport}
-                disabled={importing}
-                className="px-4 py-1.5 rounded-xl text-sm bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 shadow-sm"
-              >
-                {importing ? "导入中..." : "确认导入"}
-              </motion.button>
-              <button
-                onClick={() => { setShowImport(false); setImportText(""); }}
-                className="px-4 py-1.5 rounded-xl text-sm border hover:bg-accent"
-              >
-                取消
-              </button>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
 
       {Object.entries(groups).map(([group, groupSources]) => (
         <div key={group} className="mb-6">

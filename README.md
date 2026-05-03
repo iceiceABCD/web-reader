@@ -4,7 +4,7 @@
 
 ## 功能
 
-- **书源管理** — 导入/导出 Legado JSON 格式书源，兼容现有书源生态
+- **书源管理** — 多种导入方式（URL/文件/剪贴板/批量链接）、预览选择、导出 Legado JSON 格式书源
 - **多源搜索** — 并发搜索多个书源，搜索历史记录
 - **发现浏览** — 按书源分类浏览推荐内容
 - **本地导入** — 直接上传 TXT/EPUB 文件，自动解析章节和封面
@@ -63,6 +63,129 @@ cp .env.example .env.local
 ```bash
 npm run db:push
 ```
+
+**如果无法在本地运行 `db:push`**（比如只在 Vercel 上部署），可以在 Neon Console 的 SQL Editor 中执行以下建表语句：
+
+```sql
+CREATE TABLE IF NOT EXISTS "users" (
+  "id" text PRIMARY KEY,
+  "email" text NOT NULL UNIQUE,
+  "name" text NOT NULL,
+  "password_hash" text NOT NULL,
+  "created_at" timestamp DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS "book_sources" (
+  "book_source_url" text NOT NULL,
+  "user_id" text NOT NULL REFERENCES "users"("id") ON DELETE CASCADE,
+  "book_source_name" text NOT NULL,
+  "book_source_group" text,
+  "book_source_type" integer DEFAULT 0 NOT NULL,
+  "book_url_pattern" text,
+  "custom_order" integer DEFAULT 0 NOT NULL,
+  "enabled" boolean DEFAULT true NOT NULL,
+  "enabled_explore" boolean DEFAULT true NOT NULL,
+  "enabled_cookie_jar" boolean DEFAULT true,
+  "concurrent_rate" text,
+  "header" text,
+  "login_url" text,
+  "login_ui" text,
+  "login_check_js" text,
+  "book_source_comment" text,
+  "variable_comment" text,
+  "last_update_time" bigint DEFAULT 0 NOT NULL,
+  "respond_time" bigint DEFAULT 180000 NOT NULL,
+  "weight" integer DEFAULT 0 NOT NULL,
+  "explore_url" text,
+  "search_url" text,
+  "rule_search" jsonb,
+  "rule_explore" jsonb,
+  "rule_book_info" jsonb,
+  "rule_toc" jsonb,
+  "rule_content" jsonb,
+  "rule_review" jsonb,
+  "created_at" timestamp DEFAULT now(),
+  PRIMARY KEY ("book_source_url", "user_id")
+);
+CREATE INDEX IF NOT EXISTS "idx_book_sources_user_id" ON "book_sources" ("user_id");
+
+CREATE TABLE IF NOT EXISTS "books" (
+  "book_url" text NOT NULL,
+  "user_id" text NOT NULL REFERENCES "users"("id") ON DELETE CASCADE,
+  "toc_url" text DEFAULT '' NOT NULL,
+  "origin" text DEFAULT 'local' NOT NULL,
+  "origin_name" text DEFAULT '' NOT NULL,
+  "name" text NOT NULL,
+  "author" text DEFAULT '' NOT NULL,
+  "kind" text,
+  "cover_url" text,
+  "intro" text,
+  "type" integer DEFAULT 0 NOT NULL,
+  "latest_chapter_title" text,
+  "total_chapter_num" integer DEFAULT 0 NOT NULL,
+  "dur_chapter_index" integer DEFAULT 0 NOT NULL,
+  "dur_chapter_pos" integer DEFAULT 0 NOT NULL,
+  "dur_chapter_time" bigint DEFAULT 0 NOT NULL,
+  "word_count" text,
+  "can_update" boolean DEFAULT true NOT NULL,
+  "order" integer DEFAULT 0 NOT NULL,
+  "variable" text,
+  "created_at" timestamp DEFAULT now(),
+  PRIMARY KEY ("book_url", "user_id")
+);
+CREATE INDEX IF NOT EXISTS "idx_books_user_id" ON "books" ("user_id");
+CREATE INDEX IF NOT EXISTS "idx_books_name_author" ON "books" ("name", "author");
+
+CREATE TABLE IF NOT EXISTS "chapters" (
+  "url" text NOT NULL,
+  "book_url" text NOT NULL,
+  "user_id" text NOT NULL REFERENCES "users"("id") ON DELETE CASCADE,
+  "title" text NOT NULL,
+  "chapter_index" integer NOT NULL,
+  "is_volume" boolean DEFAULT false NOT NULL,
+  "is_vip" boolean DEFAULT false NOT NULL,
+  "is_pay" boolean DEFAULT false NOT NULL,
+  "resource_url" text,
+  "variable" text,
+  PRIMARY KEY ("url", "book_url", "user_id")
+);
+CREATE INDEX IF NOT EXISTS "idx_chapters_book_url" ON "chapters" ("book_url", "user_id");
+CREATE INDEX IF NOT EXISTS "idx_chapters_book_url_index" ON "chapters" ("book_url", "chapter_index", "user_id");
+
+CREATE TABLE IF NOT EXISTS "replace_rules" (
+  "id" serial PRIMARY KEY,
+  "user_id" text NOT NULL REFERENCES "users"("id") ON DELETE CASCADE,
+  "name" text NOT NULL,
+  "group_name" text,
+  "pattern" text NOT NULL,
+  "replacement" text DEFAULT '' NOT NULL,
+  "is_regex" boolean DEFAULT false NOT NULL,
+  "scope" text,
+  "enabled" boolean DEFAULT true NOT NULL,
+  "sort_order" integer DEFAULT 0 NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS "read_progress" (
+  "book_url" text NOT NULL,
+  "user_id" text NOT NULL REFERENCES "users"("id") ON DELETE CASCADE,
+  "dur_chapter_index" integer DEFAULT 0 NOT NULL,
+  "dur_chapter_pos" integer DEFAULT 0 NOT NULL,
+  "updated_at" timestamp DEFAULT now(),
+  PRIMARY KEY ("book_url", "user_id")
+);
+
+CREATE TABLE IF NOT EXISTS "chapter_content" (
+  "book_url" text NOT NULL,
+  "user_id" text NOT NULL REFERENCES "users"("id") ON DELETE CASCADE,
+  "chapter_index" integer NOT NULL,
+  "content" text NOT NULL,
+  "created_at" timestamp DEFAULT now(),
+  PRIMARY KEY ("book_url", "user_id", "chapter_index")
+);
+CREATE INDEX IF NOT EXISTS "idx_chapter_content_book" ON "chapter_content" ("book_url", "user_id");
+```
+
+操作步骤：Neon Console → 你的项目 → 左侧 **SQL Editor** → 粘贴上方 SQL → 点击 **Run**。
 
 ### 4. 本地开发
 
@@ -189,10 +312,14 @@ ADMIN_PASSWORD=my-secret-password
 
 ### 导入书源
 
-1. 进入「书源」页面
-2. 点击「导入」按钮
-3. 粘贴 Legado 书源 JSON（支持数组和单个对象格式）
-4. 点击「确认导入」
+1. 进入「书源」页面，点击「导入」按钮
+2. 选择导入方式：
+   - **网络地址** — 输入书源链接，服务端获取并解析（支持 `sourceUrls` 批量格式）
+   - **本地文件** — 上传 .json / .txt 书源文件
+   - **粘贴导入** — 直接粘贴 Legado 书源 JSON
+   - **批量链接** — 输入多个书源链接，每行一个
+3. 预览书源列表，查看「新增/更新/相同」状态
+4. 勾选需要导入的书源，点击「确认导入」
 
 书源可从社区获取，例如 [legado 书源仓库](https://github.com/topics/legado-source)。
 
@@ -245,6 +372,8 @@ ADMIN_PASSWORD=my-secret-password
 | `/api/bookSources` | GET/POST | 获取/批量保存书源 |
 | `/api/bookSources/[url]` | GET/PUT/DELETE | 单个书源 CRUD |
 | `/api/bookSources/import` | POST | 导入书源 JSON |
+| `/api/bookSources/import/fetch` | POST | 从 URL 获取书源 |
+| `/api/bookSources/import/preview` | POST | 导入前预览对比 |
 | `/api/bookSources/export` | GET | 导出所有书源 |
 | `/api/books` | GET/POST | 书架列表/添加书籍 |
 | `/api/books/[url]` | GET/DELETE | 获取/删除书籍 |
