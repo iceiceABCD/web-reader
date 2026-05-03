@@ -74,18 +74,92 @@ npm run dev
 
 ### 5. 部署到 Vercel
 
-**方式一：CLI 部署**
+#### 方式一：Dashboard 导入（推荐，最简单）
+
+1. **Fork 仓库**：点击 GitHub 仓库右上角 Fork 按钮，将项目 Fork 到你的账号下
+
+2. **创建 Vercel 项目**：
+   - 打开 [vercel.com](https://vercel.com)，用 GitHub 账号登录
+   - 点击 **「Add New...」→「Project」**
+   - 在列表中找到你 Fork 的 `web-reader` 仓库，点击 **「Import」**
+
+3. **创建数据库**：
+   - 在 Import 页面，展开 **「Storage」** 标签
+   - 点击 **「Create Database」**，选择 **「Postgres (Neon)」**
+   - 点击 **「Create」** 创建数据库
+   - 创建完成后，`DATABASE_URL` 环境变量会自动注入到项目中
+
+4. **配置环境变量**：
+   - 回到 Import 页面，展开 **「Environment Variables」** 标签
+   - 添加以下变量：
+
+   | Key | Value | 说明 |
+   |-----|-------|------|
+   | `AUTH_SECRET` | 随机字符串 | 在终端运行 `openssl rand -base64 32` 生成，或使用任意 32 位以上随机字符串 |
+   | `AUTH_URL` | `https://你的项目名.vercel.app` | 先填入预计的域名，部署后可在 Settings 中修改为实际域名 |
+   | `APP_MODE` | `server` 或 `private` | 不填则默认为 `server`（多人模式） |
+   | `ADMIN_EMAIL` | 你的邮箱 | 仅私人模式需要 |
+   | `ADMIN_PASSWORD` | 你的密码 | 仅私人模式需要 |
+
+5. **点击「Deploy」**，等待部署完成
+
+6. **修改 AUTH_URL**（如需）：
+   - 部署完成后，Vercel 会分配一个实际域名（如 `web-reader-xxx.vercel.app`）
+   - 进入项目 **Settings → Environment Variables**
+   - 将 `AUTH_URL` 更新为实际域名（如 `https://web-reader-xxx.vercel.app`）
+   - 点击 **Deployments → 最新部署 → Redeploy** 重新部署使变量生效
+
+7. **初始化数据库**：
+   - 在本地克隆你 Fork 的仓库并安装依赖：
+     ```bash
+     git clone https://github.com/你的用户名/web-reader.git
+     cd web-reader
+     npm install
+     ```
+   - 在 Vercel 项目 **Settings → Storage → Postgres → .env.local** 标签页中复制 `DATABASE_URL`
+   - 创建 `.env.local` 文件并粘贴：
+     ```bash
+     echo "DATABASE_URL=复制的连接字符串" > .env.local
+     ```
+   - 推送数据库 Schema：
+     ```bash
+     npm run db:push
+     ```
+   - 完成后可以删除 `.env.local`，本地不再需要
+
+8. **开始使用**：访问你的域名，注册账号即可使用
+
+#### 方式二：CLI 部署
 
 ```bash
+# 安装 Vercel CLI
 npm i -g vercel
+
+# 登录
+vercel login
+
+# 部署（首次会引导你创建项目）
 vercel
+
+# 部署后配置环境变量
+vercel env add AUTH_SECRET
+vercel env add AUTH_URL
+# 如果使用私人模式
+vercel env add APP_MODE
+vercel env add ADMIN_EMAIL
+vercel env add ADMIN_PASSWORD
+
+# 重新部署使环境变量生效
+vercel --prod
 ```
 
-**方式二：Dashboard 导入**
+数据库创建和 Schema 推送步骤同方式一的步骤 3 和 7。
 
-在 Vercel Dashboard 中直接导入 GitHub 仓库，自动部署。
+#### 部署后注意事项
 
-部署后需在 Vercel 项目 Settings → Environment Variables 中配置上述环境变量。
+- **自定义域名**：在 Vercel 项目 Settings → Domains 中绑定自定义域名后，需同步更新 `AUTH_URL` 环境变量
+- **数据持久性**：Neon Postgres 免费版有存储限制（512MB），注意数据量
+- **Serverless 限制**：Vercel 免费版 Serverless Function 超时为 10 秒，部分书源请求可能超时
 
 ## 运行模式
 
